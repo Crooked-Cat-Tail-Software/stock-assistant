@@ -122,3 +122,27 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report
           retention-days: 7
+
+  docker:
+    name: Docker Compose (build and smoke test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build images
+        run: docker compose build
+      - name: Start the stack and wait until every service is healthy
+        run: docker compose up -d --wait --wait-timeout 180
+      - name: Smoke test through nginx
+        run: |
+          curl -fsS http://localhost:8080/api/health | tee /dev/stderr | grep -q '"database":"ok"'
+          curl -fsSI http://localhost:8080/ | grep -qi "content-security-policy"
+          id=$(curl -fsS -X POST http://localhost:8080/api/sessions | jq -r .id)
+          curl -fsS -X POST "http://localhost:8080/api/sessions/$id/messages" \
+            -H 'content-type: application/json' -d '{"content":"What is AAPL?"}' \
+            | jq -e '.assistant_message.tool_calls[0].name == "GLOBAL_QUOTE"'
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v

@@ -60,8 +60,10 @@ cd frontend && npm run gen:api      # regenerate src/api/schema.d.ts after chang
 cd frontend && npm run typecheck && npm run lint
 cd frontend && npm run e2e          # Playwright end-to-end (own servers on 8001/4173)
 
-# everything
+# everything (http://localhost:8080; fake agent unless .env says otherwise)
 docker compose up --build
+# integration tests on Postgres (uses the separate app_test database)
+TEST_DATABASE_URL=postgresql://app:app@localhost:5432/app_test uv run pytest tests/integration
 ```
 
 ## AI workflow log

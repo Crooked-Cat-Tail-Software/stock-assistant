@@ -64,6 +64,9 @@ npm run e2e             # end-to-end; starts its own servers on ports 8001/4173
    typecheck, unit tests with coverage, and the production build.
 4. **End-to-end:** runs after jobs 2 and 3 pass, and uploads the Playwright
    report if it fails.
+5. **Docker Compose:** builds both images, starts the full stack, waits for
+   every health check, then smoke-tests through nginx (health, security
+   header, one chat turn).
 
 ## Writing new tests
 

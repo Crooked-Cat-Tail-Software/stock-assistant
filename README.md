@@ -18,8 +18,33 @@ Docker, and CI/CD._
 
 ## Running locally
 
-Full Docker setup: _TODO (Phase 5)._ To run the two parts directly, start the
-backend in one terminal:
+### With Docker (recommended)
+
+```bash
+docker compose up --build          # then open http://localhost:8080
+```
+
+This starts three containers:
+
+| Service | What it does |
+|---------|--------------|
+| `db` | Postgres 17. Data lives in the `db-data` volume and survives restarts. Published on `127.0.0.1:5432` only. |
+| `backend` | FastAPI. Applies migrations on startup. Not published: reachable only through `frontend`. |
+| `frontend` | nginx serving the built React app, forwarding `/api` to `backend`, and adding security headers. |
+
+With no `.env` file, the stack uses the fake agent, which needs no keys. For
+real answers, create `.env` from `.env.example` with `AGENT_MODE=openai` and
+both API keys, then run `docker compose up -d` again. Useful commands:
+
+```bash
+docker compose logs -f backend     # follow backend logs
+docker compose down                # stop (data is kept)
+docker compose down -v             # stop and delete the database volume
+```
+
+### Without Docker (for development)
+
+Start the backend in one terminal:
 
 ```bash
 cd backend
@@ -61,7 +86,9 @@ map from features to tests, coverage numbers, and what CI runs.
 
 Integration tests check every response against `openapi.yaml` and fail if the
 implemented routes drift from the contract. They use SQLite by default; set
-`TEST_DATABASE_URL=postgresql://...` to run them against Postgres. No test ever
+`TEST_DATABASE_URL=postgresql://app:app@localhost:5432/app_test` (with
+`docker compose up db` running) to run them against Postgres. They use a
+separate `app_test` database because they wipe their tables. No test ever
 calls OpenAI or Alpha Vantage; a fake agent stands in.
 
 Frontend tests run the real UI against an in-memory fake of the API

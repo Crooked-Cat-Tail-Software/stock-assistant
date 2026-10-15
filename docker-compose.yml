@@ -1,0 +1,55 @@
+# Full stack for local use:   docker compose up --build   → http://localhost:8080
+#
+# Works with no .env file: the backend then uses the fake agent (no API keys).
+# For real answers, put AGENT_MODE=openai, OPENAI_API_KEY and
+# ALPHAVANTAGE_API_KEY in .env (see .env.example).
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app} # local-only default; never reuse in production
+      POSTGRES_DB: app
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./ops/postgres-init:/docker-entrypoint-initdb.d:ro
+    # Published on 127.0.0.1 only, so integration tests can use it from this
+    # machine but the rest of the network cannot reach it.
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # These override anything in .env.
+      DATABASE_URL: postgresql://app:${POSTGRES_PASSWORD:-app}@db:5432/app
+      AGENT_MODE: ${AGENT_MODE:-fake}
+    # No "ports": the backend is reachable only through the frontend's nginx.
+    # That is also why it can safely trust X-Forwarded-For from any proxy.
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    environment:
+      BACKEND_URL: http://backend:8000
+    ports:
+      - "8080:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db-data:

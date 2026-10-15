@@ -169,3 +169,42 @@ writing them from memory, since all were several major versions newer.
   first Postgres run)
 
 **Reviewed by hand:** _TODO (me)._
+
+### 2026-10-15 — Phase 5: containerization
+
+**Asked:** Run the full system with Docker Compose.
+
+**AI did:**
+- Wrote multi-stage Dockerfiles that run as non-root users:
+  - Backend: Python 3.13-slim with uv 0.13.1 pinned and locked installs. The
+    runtime image has no uv or compilers.
+  - Frontend: a Node 24 build stage, then unprivileged nginx 1.30.
+- Wrote `docker-compose.yml` (Postgres 17, backend, frontend) with health
+  checks, a named volume, and the backend unpublished.
+- The nginx config proxies `/api`, sets security headers (CSP and others),
+  caches hashed assets, and serves the SPA fallback. It overwrites
+  `X-Forwarded-For` so clients can't spoof their IP past the rate limit.
+- Added a separate `app_test` database (created by an init script) so
+  integration tests can't wipe dev data.
+- Added a CI job that builds the images, starts the stack, and smoke-tests it
+  through nginx.
+
+**Verified:**
+- `docker compose build` and `up --wait`: all 3 services healthy, and
+  migrations ran on Postgres.
+- curl checks: health through nginx, security headers on pages and assets,
+  SPA deep-link fallback, unknown API routes return JSON errors, and the
+  backend port is not published.
+- IP spoofing: a request with `X-Forwarded-For: 6.6.6.6` was not seen as
+  6.6.6.6. A request from inside the network showed the real client IP.
+  (Requests from the Mac host appear to nginx as `151.101.0.223`, an artifact
+  of Docker Desktop's port forwarding on this machine, not of the app.)
+- Containers run as uid 10001 (backend) and nginx (frontend). The image
+  contains no tests or `.env`.
+- **First run of the integration tests on Postgres: 19 passed.**
+- Dev data survived both a test run and a `docker compose down` / `up`.
+- Browser on :8080: chat works, and the console is empty (no CSP violations).
+- The CI smoke-test commands passed against the local stack, and `actionlint`
+  is OK.
+
+**Reviewed by hand:** _TODO (me)._
