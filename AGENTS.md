@@ -38,7 +38,9 @@ the guardrails.
    to Alpha Vantage, because the API key can appear in the query string.
 5. **The agent connects only to the Alpha Vantage MCP server.** Do not add
    filesystem, shell, or other local-access MCP servers to the runtime agent.
-6. **Frontend:** no `fetch` calls outside `src/api/client.ts`.
+6. **Frontend:** no `fetch` calls outside `src/api/client.ts` (ESLint enforces
+   this). Components get the client through `useApi()` so tests can inject
+   `createFakeApi()`. Never edit `src/api/schema.d.ts` by hand.
 7. Keep changes small and run the relevant tests before saying something works.
 
 ## Commands
@@ -53,6 +55,8 @@ cd backend && uv run uvicorn app.main:create_app --factory --reload
 
 # frontend
 cd frontend && npm ci && npm test && npm run dev
+cd frontend && npm run gen:api      # regenerate src/api/schema.d.ts after changing openapi.yaml
+cd frontend && npm run typecheck && npm run lint
 
 # everything
 docker compose up --build

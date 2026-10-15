@@ -17,7 +17,7 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from app.agent import FakeAgent
+from app.agent import Agent, FakeAgent
 from app.config import Settings
 from app.db import make_engine
 from app.main import create_app
@@ -50,17 +50,17 @@ def clean_database(database_url) -> Iterator[None]:
 
 @pytest.fixture
 def make_client(database_url) -> Iterator[Callable[..., TestClient]]:
-    """Build a client; keyword arguments override settings (e.g. rate_limit_per_minute=2)."""
+    """Build a client. Optionally pass an agent; other keyword arguments override settings."""
     clients: list[TestClient] = []
 
-    def _make(**overrides) -> TestClient:
+    def _make(agent: Agent | None = None, **overrides) -> TestClient:
         settings = Settings(
             _env_file=None,
             database_url=database_url,
             agent_mode="fake",
             **({"rate_limit_per_minute": 1000} | overrides),
         )
-        client = TestClient(create_app(settings, agent=FakeAgent()))
+        client = TestClient(create_app(settings, agent=agent or FakeAgent()))
         client.__enter__()  # runs the app's startup/shutdown (lifespan)
         clients.append(client)
         return client

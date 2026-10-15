@@ -2,6 +2,7 @@
 
 import uuid
 
+from app.agent import AgentReply
 from app.agent.fake import FAIL_TRIGGER
 from tests.integration.contract import assert_conforms
 
@@ -135,3 +136,19 @@ def test_rate_limit(make_client):
     assert limited.status_code == 429
     assert_conforms(limited, MESSAGES, "post")
     assert int(limited.headers["Retry-After"]) > 0
+
+
+class UnparseableArgumentsAgent:
+    async def reply(self, history, question):
+        return AgentReply("done", [{"name": "GLOBAL_QUOTE", "arguments": None}])
+
+
+def test_tool_call_without_parseable_arguments_conforms(make_client):
+    client = make_client(agent=UnparseableArgumentsAgent())
+    session_id = new_session(client)
+
+    response = client.post(f"{SESSIONS}/{session_id}/messages", json={"content": "q"})
+
+    assert response.status_code == 200
+    assert_conforms(response, MESSAGES, "post")
+    assert response.json()["assistant_message"]["tool_calls"][0]["arguments"] is None

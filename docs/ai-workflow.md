@@ -81,3 +81,47 @@ any changes here._
 - The real `OpenAIAgent` against live OpenAI and Alpha Vantage (needs my keys)
 
 **Reviewed by hand:** _TODO (me)._
+
+### 2026-10-15 — Phase 3: frontend
+
+**Asked:** Build the React frontend.
+
+**AI did:**
+- Set up React 19, Vite 8, and TypeScript with types generated from
+  `openapi.yaml` (`npm run gen:api`). All backend calls live in
+  `src/api/client.ts`, and an ESLint rule fails the build on any other `fetch`.
+- Built the chat view (Markdown replies, data-source chips, pending and error
+  states), the session list, the watchlist (with "Ask about"), and a health
+  badge.
+- Wrote 35 Vitest and Testing Library tests against an in-memory fake API,
+  including a check that the client-side validation rules match the contract.
+
+**Problems found and fixed:**
+- **Contract bug:** the backend can return `"arguments": null` for a tool
+  call, but the contract didn't allow null. Fixed the contract first, then
+  added a backend test, and confirmed that test fails against the old contract.
+- **Dependency conflict:** the newest TypeScript was too new for both
+  `typescript-eslint` and `openapi-typescript`. Pinned TypeScript 5.9, which
+  satisfies both, instead of forcing the install.
+- **State bug caught in review:** reopening a chat after switching away could
+  show the wrong messages. Replaced the bookkeeping with a React `key` per
+  opened chat.
+- **Lint:** the new React rule `set-state-in-effect` flagged one hook, which
+  was restructured.
+- **Tests:** added Testing Library cleanup (it doesn't auto-run without
+  Vitest globals). Gave the watchlist button the accessible name "Ask about
+  TSLA", which also fixes a screen-reader ambiguity.
+- The contract-sync test reads `openapi.yaml` with Node rather than loosening
+  Vite's file-serving restriction.
+
+**Verified:**
+- `npm test`: 35 passed. `typecheck`, `lint`, and `build` are clean. Backend
+  `pytest`: 46 passed.
+- The lint guardrail fails on a temporary `fetch` in a component (file removed
+  afterwards).
+- Manual browser check against the real backend (fake agent): asked an example
+  question, added `nvda` (stored as NVDA), used Ask about NVDA, and reopened the
+  first conversation. At 375 px there's no horizontal scroll, and the console
+  shows no errors.
+
+**Reviewed by hand:** _TODO (me)._

@@ -274,8 +274,9 @@ components:
           type: string
           examples: [GLOBAL_QUOTE, TIME_SERIES_DAILY, TOP_GAINERS_LOSERS]
         arguments:
-          type: object
+          type: [object, "null"]
           additionalProperties: true
+          description: Arguments the agent passed, or null if they could not be parsed
 
     ChatTurn:
       type: object
