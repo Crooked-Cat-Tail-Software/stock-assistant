@@ -18,11 +18,31 @@ Docker, and CI/CD._
 
 ## Running locally
 
-_TODO (Phase 5)._
+Full Docker setup: _TODO (Phase 5)._ To run the backend on its own:
+
+```bash
+cd backend
+uv sync
+uv run alembic upgrade head                                 # create/upgrade the database
+uv run uvicorn app.main:create_app --factory --reload       # http://localhost:8000/docs
+```
+
+With no `.env` file, the backend runs with `AGENT_MODE=fake`, which needs no API
+keys. For real answers, copy `.env.example` to `.env`, set `AGENT_MODE=openai`,
+and add your OpenAI and Alpha Vantage keys.
 
 ## Testing
 
-_TODO (Phase 4)._
+```bash
+cd backend
+uv run pytest tests/unit          # business logic, no HTTP (in-memory SQLite)
+uv run pytest tests/integration   # real HTTP + real DB built by migrations
+```
+
+Integration tests check every response against `openapi.yaml` and fail if the
+implemented routes drift from the contract. They use SQLite by default; set
+`TEST_DATABASE_URL=postgresql://...` to run them against Postgres. No test ever
+calls OpenAI or Alpha Vantage; a fake agent stands in.
 
 ## Deployment
 

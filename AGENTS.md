@@ -25,6 +25,10 @@ the guardrails.
 1. **Contract first.** To add or change an endpoint, edit `openapi.yaml`, run
    `uvx openapi-spec-validator openapi.yaml`, then update the backend,
    regenerate the frontend types, and update the tests, in that order.
+   `tests/integration/test_contract_coverage.py` fails if the routes and the
+   contract disagree.
+2a. **Schema changes need a migration:** after editing `app/models.py`, run
+   `uv run alembic revision --autogenerate -m "..."` and review the generated file.
 2. **Never call real external APIs in tests.** Use the fake agent
    (`backend/app/agent/fake.py`). CI has no OpenAI or Alpha Vantage keys.
 3. **Unit tests** go in `backend/tests/unit/`. **Integration tests** (real HTTP
@@ -42,8 +46,10 @@ the guardrails.
 ```bash
 # backend
 cd backend && uv sync && uv run pytest tests/unit
-cd backend && uv run pytest tests/integration   # needs docker compose db up
-cd backend && uv run uvicorn app.main:app --reload
+cd backend && uv run pytest tests/integration   # SQLite by default; set TEST_DATABASE_URL for Postgres
+cd backend && uv run alembic upgrade head        # apply migrations to DATABASE_URL
+cd backend && uv run ruff check . && uv run ruff format --check .
+cd backend && uv run uvicorn app.main:create_app --factory --reload
 
 # frontend
 cd frontend && npm ci && npm test && npm run dev
