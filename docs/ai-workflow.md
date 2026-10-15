@@ -208,3 +208,49 @@ writing them from memory, since all were several major versions newer.
   is OK.
 
 **Reviewed by hand:** _TODO (me)._
+
+### 2026-10-15 — Phase 6: CI/CD
+
+**Asked:** Deploy automatically when tests pass.
+
+**Research before building:** read Render's current Blueprint spec and
+free-tier docs instead of relying on memory. Three findings changed the design:
+- Free Render Postgres is deleted after 30 days (+14 days grace), which could
+  fall inside the peer-review window. **My decision:** use Neon's free Postgres,
+  which doesn't expire.
+- Free services can't receive private-network traffic, so nginx must call the
+  API's public HTTPS URL. The proxy now sends `Host $proxy_host` and SNI; the
+  old `Host $host` would have broken Render's routing.
+- That makes the backend publicly reachable, so a client could bypass nginx
+  and spoof `X-Forwarded-For` to avoid the rate limit. Added a shared-secret
+  `X-Internal-Token` check (constant-time compare, 403, health exempt),
+  documented in the contract.
+
+**AI did:**
+- Wrote `render.yaml` (two Docker web services, free plan, auto-deploy off,
+  secrets as `sync: false`).
+- Health now reports `commit` (from `RENDER_GIT_COMMIT`), and the frontend
+  serves `/version`.
+- Added a `deploy` job: it runs only on `main` after all 5 CI jobs pass,
+  deploys the backend and then the frontend, waits for each to report the
+  tested commit, and smoke-tests production (including that the backend
+  returns 403 to direct requests).
+- Runs on `main` are no longer cancelled by newer pushes, so a deploy can't be
+  interrupted halfway.
+- Wrote `docs/deployment.md`.
+
+**My decisions:** Neon for the database. A public GitHub repo. Commits keep my
+email as author (I was told it becomes public).
+
+**Verified:**
+- Backend: 60 passed (4 new deployment-config tests). Frontend: 36 passed.
+  E2E: 5 passed. Typecheck, lint, and ruff are clean. `actionlint` OK.
+- Rehearsed the Render configuration locally with a token in Compose: the app
+  works through nginx (200), direct backend requests get 403, health stays
+  open, `/version` works, and spoofed XFF is still ignored.
+- The `wait-for-commit.sh` script both succeeds and times out correctly.
+
+**Not yet verified:**
+- Render's actual client-IP header behavior, and the live deploy (Phase 7)
+
+**Reviewed by hand:** _TODO (me)._

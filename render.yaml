@@ -1,0 +1,57 @@
+# Render Blueprint: infrastructure as code for the production deployment.
+# Create it once in the Render dashboard (New → Blueprint → this repo); see
+# docs/deployment.md. Deploys are triggered by GitHub Actions only after all CI
+# jobs pass, so Render's own auto-deploy is turned off.
+#
+# Values marked `sync: false` are secrets: Render asks for them when the
+# Blueprint is first created and they are never stored in this file.
+
+services:
+  - type: web
+    name: stock-assistant-api
+    runtime: docker
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    plan: free
+    region: oregon            # keep the Neon database in the same area (AWS us-west-2)
+    healthCheckPath: /api/health
+    autoDeployTrigger: off    # GitHub Actions deploys after tests pass
+    envVars:
+      - key: DATABASE_URL     # Neon connection string (free tier, doesn't expire)
+        sync: false
+      - key: AGENT_MODE       # "openai" for real answers, "fake" to run without cost
+        value: openai
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ALPHAVANTAGE_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "10"
+      - key: INTERNAL_API_TOKEN  # same random value as on stock-assistant-web
+        sync: false
+
+  - type: web
+    name: stock-assistant-web
+    runtime: docker
+    dockerContext: ./frontend
+    dockerfilePath: ./frontend/Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /
+    autoDeployTrigger: off
+    envVars:
+      - key: PORT             # nginx listens on 8080
+        value: "8080"
+      # Free services can't use Render's private network, so nginx reaches the
+      # API at its public URL. If Render gives the API a different URL (name
+      # taken), update this value in the dashboard.
+      - key: BACKEND_URL
+        value: https://stock-assistant-api.onrender.com
+      - key: INTERNAL_API_TOKEN  # same random value as on stock-assistant-api
+        sync: false
+      # Requests arrive through Render's load balancer; take the client IP from
+      # the X-Forwarded-For entry it adds.
+      - key: TRUSTED_PROXY_CIDR
+        value: 0.0.0.0/0

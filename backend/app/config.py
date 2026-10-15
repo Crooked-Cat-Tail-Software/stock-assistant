@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     agent_tracing_enabled: bool = False
 
     rate_limit_per_minute: int = 10
+    # Shared secret between the frontend's nginx and the backend. When set, /api/*
+    # requests (except /api/health) must carry it in X-Internal-Token. Used where
+    # the backend is publicly reachable (Render); unset in Compose and local dev.
+    internal_api_token: SecretStr | None = None
+    # Commit being run. Render sets RENDER_GIT_COMMIT automatically.
+    git_commit: str | None = Field(
+        default=None, validation_alias=AliasChoices("GIT_COMMIT", "RENDER_GIT_COMMIT")
+    )
     log_level: str = "INFO"
 
 

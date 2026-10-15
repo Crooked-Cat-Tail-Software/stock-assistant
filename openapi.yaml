@@ -8,6 +8,12 @@ info:
     TypeScript types are generated from it.
 
     All errors use the `Error` schema.
+
+    Deployment note: when the backend is publicly reachable (e.g. on Render), it
+    is configured with a shared secret and rejects `/api/*` requests (except
+    `/api/health`) that lack a matching `X-Internal-Token` header with 403. The
+    frontend's nginx adds the header, so browsers and the frontend never see
+    this; it only stops clients from bypassing nginx.
 servers:
   - url: http://localhost:8000
     description: Local development
@@ -214,6 +220,9 @@ components:
         status: { type: string, enum: [ok, degraded] }
         database: { type: string, enum: [ok, unavailable] }
         version: { type: string }
+        commit:
+          type: [string, "null"]
+          description: Git commit the server was built from, or null when unknown (local runs)
 
     SessionCreate:
       type: object

@@ -1,9 +1,25 @@
-# Rendered at container start: ${BACKEND_URL} is substituted from the environment.
+# Rendered at container start: ${VARS} are substituted from the environment
+# (defaults are set in the Dockerfile).
 server {
     listen 8080;
     server_name _;
     root /usr/share/nginx/html;
     server_tokens off;
+
+    # Client IP. In Compose nothing is trusted (127.0.0.1/32), so $remote_addr is
+    # the real peer and a client-supplied X-Forwarded-For is ignored. Behind a
+    # platform load balancer (Render), TRUSTED_PROXY_CIDR=0.0.0.0/0 takes the
+    # last X-Forwarded-For entry, the one added by the load balancer.
+    set_real_ip_from ${TRUSTED_PROXY_CIDR};
+    real_ip_header X-Forwarded-For;
+    real_ip_recursive off;
+
+    # Which commit this frontend was built from; CI checks it after deploying.
+    location = /version {
+        default_type text/plain;
+        add_header Cache-Control "no-store";
+        return 200 "${RENDER_GIT_COMMIT}\n";
+    }
 
     gzip on;
     gzip_types text/css application/javascript application/json image/svg+xml;
@@ -16,7 +32,12 @@ server {
 
     location /api/ {
         proxy_pass ${BACKEND_URL};
-        proxy_set_header Host $host;
+        # Send the backend's own hostname: platforms like Render route by Host,
+        # and HTTPS backends need it for SNI.
+        proxy_set_header Host $proxy_host;
+        proxy_ssl_server_name on;
+        # Shared secret proving the request came through this proxy (empty = not sent).
+        proxy_set_header X-Internal-Token "${INTERNAL_API_TOKEN}";
         # Overwrite (not append) so clients can't spoof their IP to dodge the rate limit.
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;

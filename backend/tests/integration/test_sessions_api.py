@@ -178,7 +178,12 @@ def test_health_reports_503_when_database_is_down(client):
 
     assert response.status_code == 503
     assert_conforms(response, "/api/health", "get")
-    assert response.json() == {"status": "degraded", "database": "unavailable", "version": "0.1.0"}
+    assert response.json() == {
+        "status": "degraded",
+        "database": "unavailable",
+        "version": "0.1.0",
+        "commit": None,
+    }
 
 
 def test_unknown_api_route_uses_error_shape(client):

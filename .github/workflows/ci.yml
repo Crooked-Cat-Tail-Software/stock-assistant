@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -11,7 +11,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancel superseded PR runs, but never interrupt a run on main mid-deploy.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   contract:
@@ -146,3 +147,51 @@ jobs:
       - name: Stop the stack
         if: always()
         run: docker compose down -v
+
+  deploy:
+    name: Deploy to Render
+    # Only after every check above passes, only for pushes to main, and only
+    # once deployment is configured (repository variable DEPLOY_ENABLED=true).
+    needs: [contract, backend, frontend, e2e, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.FRONTEND_URL }}
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      BACKEND_URL: ${{ vars.BACKEND_URL }}
+      FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Backend first: it runs the database migrations the new frontend may rely on.
+      - name: Trigger backend deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}
+        run: curl -fsS -X POST "$HOOK" -o /dev/null
+      - name: Wait until the backend runs this commit
+        run: ops/scripts/wait-for-commit.sh "$BACKEND_URL/api/health" "$GITHUB_SHA"
+
+      - name: Trigger frontend deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_FRONTEND }}
+        run: curl -fsS -X POST "$HOOK" -o /dev/null
+      - name: Wait until the frontend runs this commit
+        run: ops/scripts/wait-for-commit.sh "$FRONTEND_URL/version" "$GITHUB_SHA"
+
+      - name: Smoke test production
+        run: |
+          # The app works through the frontend (nginx adds the internal token)...
+          curl -fsS "$FRONTEND_URL/api/health" | jq -e '.status == "ok" and .database == "ok"'
+          curl -fsS "$FRONTEND_URL/api/sessions" -o /dev/null
+          curl -fsSI "$FRONTEND_URL/" | grep -qi "content-security-policy"
+          # ...and the backend refuses requests that bypass it.
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/api/sessions")
+          if [ "$code" != "403" ]; then
+            echo "::error::Backend answered $code to a direct request; expected 403"
+            exit 1
+          fi
+

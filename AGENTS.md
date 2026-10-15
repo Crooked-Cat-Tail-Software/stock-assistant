@@ -18,7 +18,8 @@ the guardrails.
 | `mcp-server/` | This project's own MCP server, which exposes sessions and the watchlist |
 | `docs/` | Architecture, AI workflow log, permissions, extension pack |
 | `security/` | Security scan outputs and the AI tool/data policy |
-| `ops/` | Runbook and operational diagnosis output |
+| `ops/` | Runbook, deploy scripts, Postgres init |
+| `render.yaml` | Production infrastructure (Render Blueprint); see `docs/deployment.md` |
 
 ## Rules
 
@@ -36,6 +37,8 @@ the guardrails.
 4. **No secrets in code, logs, or commits.** Keys come from environment
    variables only, and `.env` is gitignored. Never log full request URLs
    to Alpha Vantage, because the API key can appear in the query string.
+4a. **Never put secret values in `render.yaml`** (use `sync: false`) or in
+   workflow files (use `secrets.*`).
 5. **The agent connects only to the Alpha Vantage MCP server.** Do not add
    filesystem, shell, or other local-access MCP servers to the runtime agent.
 6. **Frontend:** no `fetch` calls outside `src/api/client.ts` (ESLint enforces

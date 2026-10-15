@@ -98,7 +98,13 @@ from the contract with `npm run gen:api`.
 
 ## Deployment
 
-_TODO (Phase 7)._
+Production runs on Render (two Docker services from `render.yaml`) with a Neon
+Postgres database. GitHub Actions deploys **only after every CI job passes**,
+then checks that both services run the new commit and smoke-tests the live
+site. See [docs/deployment.md](docs/deployment.md) for the architecture, the
+security model, and one-time setup.
+
+Live URL: _TODO (Phase 7)._
 
 ## AI-assisted development
 

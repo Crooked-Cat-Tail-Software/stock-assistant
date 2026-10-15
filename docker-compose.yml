@@ -33,6 +33,8 @@ services:
       # These override anything in .env.
       DATABASE_URL: postgresql://app:${POSTGRES_PASSWORD:-app}@db:5432/app
       AGENT_MODE: ${AGENT_MODE:-fake}
+      # Optional shared secret with nginx (required on Render, off by default here).
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-}
     # No "ports": the backend is reachable only through the frontend's nginx.
     # That is also why it can safely trust X-Forwarded-For from any proxy.
     depends_on:
@@ -44,6 +46,7 @@ services:
     build: ./frontend
     environment:
       BACKEND_URL: http://backend:8000
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-}
     ports:
       - "8080:8080"
     depends_on:

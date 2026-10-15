@@ -143,6 +143,8 @@ export interface components {
             /** @enum {string} */
             database: "ok" | "unavailable";
             version?: string;
+            /** @description Git commit the server was built from, or null when unknown (local runs) */
+            commit?: string | null;
         };
         SessionCreate: {
             title?: string;

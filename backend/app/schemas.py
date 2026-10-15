@@ -29,6 +29,7 @@ class Health(BaseModel):
     status: Literal["ok", "degraded"]
     database: Literal["ok", "unavailable"]
     version: str
+    commit: str | None = None
 
 
 class ToolCall(BaseModel):

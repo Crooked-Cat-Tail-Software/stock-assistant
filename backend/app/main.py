@@ -14,6 +14,7 @@ from app.agent import Agent, FakeAgent
 from app.config import Settings, get_settings
 from app.db import make_engine, make_session_factory
 from app.errors import install_error_handlers
+from app.internal_token import install_internal_token_check
 from app.ratelimit import RateLimiter
 from app.routers import health, sessions, watchlist
 
@@ -72,6 +73,11 @@ def create_app(settings: Settings | None = None, agent: Agent | None = None) -> 
     app.state.session_factory = make_session_factory(engine)
     app.state.agent = agent or build_agent(settings)
     app.state.rate_limiter = RateLimiter(settings.rate_limit_per_minute)
+    app.state.settings = settings
+
+    token = settings.internal_api_token.get_secret_value() if settings.internal_api_token else ""
+    if token:  # an empty value (e.g. INTERNAL_API_TOKEN= in Compose) means "off"
+        install_internal_token_check(app, token)
 
     install_error_handlers(app)
     app.include_router(health.router)

@@ -10,8 +10,12 @@ RUN npm run build
 
 # ---- runtime stage: static files served by nginx as a non-root user ----
 FROM nginxinc/nginx-unprivileged:1.30-alpine
-# Where nginx forwards /api. Overridable at run time (e.g. on a hosting platform).
-ENV BACKEND_URL=http://backend:8000
+# Runtime settings substituted into the nginx config (see nginx/default.conf.template).
+# Defaults suit Docker Compose; the hosting platform overrides them.
+ENV BACKEND_URL=http://backend:8000 \
+    INTERNAL_API_TOKEN="" \
+    TRUSTED_PROXY_CIDR=127.0.0.1/32 \
+    RENDER_GIT_COMMIT=local
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 8080
