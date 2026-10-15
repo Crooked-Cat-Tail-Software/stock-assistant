@@ -11,7 +11,7 @@ from app.agent import AgentError, HistoryItem
 from app.agent import openai_agent as module
 from app.agent.openai_agent import OpenAIAgent
 
-SECRET = "AV-SECRET-KEY-123"  # noqa: S105 (dummy value the test checks for leaks)
+SECRET = "AV-SECRET-KEY-123"  # noqa: S105  gitleaks:allow (dummy value the test checks for leaks)
 
 
 @pytest.fixture

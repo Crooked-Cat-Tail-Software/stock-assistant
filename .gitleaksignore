@@ -1,0 +1,3 @@
+# Reviewed false positives only. Each entry pins one exact finding (commit:file:rule:line).
+# Dummy key used by the test that proves real API keys never reach logs.
+44738d23fff5cee3fd9871639a8a08e2765f46b3:backend/tests/unit/test_openai_agent.py:generic-api-key:14
