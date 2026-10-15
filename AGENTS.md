@@ -42,6 +42,7 @@ the guardrails.
    this). Components get the client through `useApi()` so tests can inject
    `createFakeApi()`. Never edit `src/api/schema.d.ts` by hand.
 7. Keep changes small and run the relevant tests before saying something works.
+   See `docs/testing.md` for which test layer a change belongs in.
 
 ## Commands
 
@@ -57,6 +58,7 @@ cd backend && uv run uvicorn app.main:create_app --factory --reload
 cd frontend && npm ci && npm test && npm run dev
 cd frontend && npm run gen:api      # regenerate src/api/schema.d.ts after changing openapi.yaml
 cd frontend && npm run typecheck && npm run lint
+cd frontend && npm run e2e          # Playwright end-to-end (own servers on 8001/4173)
 
 # everything
 docker compose up --build

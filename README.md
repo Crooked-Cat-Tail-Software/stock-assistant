@@ -53,7 +53,11 @@ uv run pytest tests/integration   # real HTTP + real DB built by migrations
 cd frontend
 npm test                          # API client, validation, and UI flows (Vitest + Testing Library)
 npm run typecheck && npm run lint
+npm run e2e                       # Playwright: real browser + real backend (run `npx playwright install chromium` once)
 ```
+
+See [docs/testing.md](docs/testing.md) for what each test layer covers, a
+map from features to tests, coverage numbers, and what CI runs.
 
 Integration tests check every response against `openapi.yaml` and fail if the
 implemented routes drift from the contract. They use SQLite by default; set

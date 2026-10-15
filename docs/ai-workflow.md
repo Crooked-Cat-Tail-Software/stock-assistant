@@ -125,3 +125,47 @@ any changes here._
   shows no errors.
 
 **Reviewed by hand:** _TODO (me)._
+
+### 2026-10-15 — Phase 4: testing and CI
+
+**Asked:** Complete the testing layer.
+
+**AI did:**
+- Added coverage reporting for both sides and wrote tests for the gaps:
+  - The real agent's run and error path, with `Runner.run` replaced
+  - A check that the API key never appears in logs or errors
+  - Health returning 503 when the database is down
+  - The duplicate-watchlist race
+  - Postgres URL handling
+  - Session-list load failures in the UI
+- Added 5 Playwright end-to-end tests covering features F1–F5 and the failure
+  path, against the production frontend build and the real backend.
+- Wrote `.github/workflows/ci.yml` (contract, backend on Postgres 17,
+  frontend, and e2e) and `docs/testing.md`.
+
+**Problem found by the new tests:** the API-key-leak test passed when run on
+its own but failed in the full suite. Its secret-not-in-logs assertion had been
+passing vacuously, because nothing was logged at all. The cause was Alembic's
+`fileConfig`, which disables all existing loggers by default, so running
+migrations in-process (as the integration tests do) silenced the app's error
+logs. Fixed with `disable_existing_loggers=False` in `migrations/env.py`. The
+extra assertion that the error type *is* logged is what exposed this.
+
+**Also:** looked up the latest versions of the GitHub Actions used
+(checkout v7, setup-node v7, setup-uv v10, upload-artifact v7) instead of
+writing them from memory, since all were several major versions newer.
+
+**Verified:**
+- Backend: 56 passed, 97% coverage, ruff clean.
+- Frontend: 36 passed, 93% statement coverage. Typecheck and lint are clean.
+- E2E: 5 passed.
+- `actionlint` reports the workflow as valid. CI's commands ran locally:
+  `uv sync --locked`, `npm ci`, the OpenAPI validation, and the stale-types
+  check.
+
+**Not yet verified:**
+- The workflow running on GitHub (the repo has no remote yet)
+- Integration tests on Postgres (Docker isn't running locally; CI will be the
+  first Postgres run)
+
+**Reviewed by hand:** _TODO (me)._

@@ -10,7 +10,9 @@ from app.db import Base, make_engine
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Keep loggers that already exist (e.g. the app's, when migrations run
+    # in-process from tests). The default would silently disable them.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 

@@ -145,6 +145,15 @@ describe("watchlist", () => {
   });
 });
 
+describe("load failures", () => {
+  it("explains when conversations can't be loaded", async () => {
+    const api = createFakeApi();
+    vi.mocked(api.listSessions).mockRejectedValue(new ApiError(503, "http_error", "The service is temporarily unavailable."));
+    renderApp(api);
+    expect(await within(sidebar()).findByRole("alert")).toHaveTextContent("The service is temporarily unavailable.");
+  });
+});
+
 describe("health badge", () => {
   it("shows when the backend is unreachable", async () => {
     const api = createFakeApi();

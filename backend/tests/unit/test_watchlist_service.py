@@ -35,3 +35,15 @@ def test_remove_missing_is_not_found(db):
 def test_invalid_symbols_are_rejected(symbol):
     with pytest.raises(ValidationError):
         WatchlistItemCreate(symbol=symbol)
+
+
+def test_concurrent_duplicate_insert_is_conflict_not_crash(db, monkeypatch):
+    # Simulate another request inserting AAPL between our check and our commit.
+    svc.add_item(db, WatchlistItemCreate(symbol="AAPL"))
+    db.expunge_all()
+    monkeypatch.setattr(db, "get", lambda *args, **kwargs: None)
+
+    with pytest.raises(ApiError) as exc:
+        svc.add_item(db, WatchlistItemCreate(symbol="AAPL"))
+
+    assert exc.value.status_code == 409

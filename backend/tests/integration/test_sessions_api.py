@@ -152,3 +152,36 @@ def test_tool_call_without_parseable_arguments_conforms(make_client):
     assert response.status_code == 200
     assert_conforms(response, MESSAGES, "post")
     assert response.json()["assistant_message"]["tool_calls"][0]["arguments"] is None
+
+
+class BrokenSessionFactory:
+    def __call__(self):
+        from sqlalchemy.exc import OperationalError
+
+        class Broken:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def execute(self, *args, **kwargs):
+                raise OperationalError("SELECT 1", {}, Exception("connection refused"))
+
+        return Broken()
+
+
+def test_health_reports_503_when_database_is_down(client):
+    client.app.state.session_factory = BrokenSessionFactory()
+
+    response = client.get("/api/health")
+
+    assert response.status_code == 503
+    assert_conforms(response, "/api/health", "get")
+    assert response.json() == {"status": "degraded", "database": "unavailable", "version": "0.1.0"}
+
+
+def test_unknown_api_route_uses_error_shape(client):
+    response = client.get("/api/does-not-exist")
+    assert response.status_code == 404
+    assert response.json()["code"] == "not_found"
