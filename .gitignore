@@ -1,0 +1,25 @@
+# secrets
+.env
+.env.*
+!.env.example
+mcp.json
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.db
+
+# node
+node_modules/
+dist/
+coverage/
+
+# os / editors
+.DS_Store
+.idea/
+.vscode/

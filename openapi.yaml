@@ -1,0 +1,309 @@
+openapi: 3.1.0
+info:
+  title: Stock Research Assistant API
+  version: 0.1.0
+  description: |
+    Contract between the frontend and backend. This file is written first and is
+    the source of truth: the backend must conform to it, and the frontend's
+    TypeScript types are generated from it.
+
+    All errors use the `Error` schema.
+servers:
+  - url: http://localhost:8000
+    description: Local development
+tags:
+  - name: health
+  - name: sessions
+  - name: watchlist
+
+paths:
+  /api/health:
+    get:
+      tags: [health]
+      operationId: getHealth
+      summary: Report API and database status
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+        "503":
+          description: Database is unreachable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  /api/sessions:
+    get:
+      tags: [sessions]
+      operationId: listSessions
+      summary: List chat sessions, newest first
+      responses:
+        "200":
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/SessionSummary" }
+    post:
+      tags: [sessions]
+      operationId: createSession
+      summary: Start a new, empty chat session
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SessionCreate" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionSummary" }
+
+  /api/sessions/{sessionId}:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    get:
+      tags: [sessions]
+      operationId: getSession
+      summary: Get a session with its full message history
+      responses:
+        "200":
+          description: Session with messages in chronological order
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionDetail" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [sessions]
+      operationId: deleteSession
+      summary: Delete a session and all its messages
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/sessions/{sessionId}/messages:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    post:
+      tags: [sessions]
+      operationId: sendMessage
+      summary: Ask the agent a question in this session
+      description: |
+        Stores the user's message, runs the agent with the session's prior
+        history, stores the reply, and returns both. If the session has no title
+        yet, the question (trimmed to 80 characters) becomes its title.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MessageCreate" }
+      responses:
+        "200":
+          description: The agent's reply
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChatTurn" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "502":
+          description: The AI model or market-data service failed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/watchlist:
+    get:
+      tags: [watchlist]
+      operationId: listWatchlist
+      summary: List watchlist items, alphabetically by symbol
+      responses:
+        "200":
+          description: Watchlist
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WatchlistItem" }
+    post:
+      tags: [watchlist]
+      operationId: addWatchlistItem
+      summary: Add a ticker (symbol is uppercased before storing)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WatchlistItemCreate" }
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchlistItem" }
+        "409":
+          description: Symbol already on the watchlist
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/watchlist/{symbol}:
+    parameters:
+      - name: symbol
+        in: path
+        required: true
+        schema: { $ref: "#/components/schemas/Symbol" }
+    delete:
+      tags: [watchlist]
+      operationId: removeWatchlistItem
+      summary: Remove a ticker
+      responses:
+        "204": { description: Removed }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ValidationError:
+      description: Request body failed validation
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: Too many requests from this client; retry later
+      headers:
+        Retry-After:
+          schema: { type: integer }
+          description: Seconds until a retry is allowed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code
+          examples: [not_found, validation_error, duplicate_symbol, rate_limited, upstream_error]
+        message:
+          type: string
+          description: Human-readable explanation, safe to show in the UI
+
+    Health:
+      type: object
+      required: [status, database]
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        database: { type: string, enum: [ok, unavailable] }
+        version: { type: string }
+
+    SessionCreate:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 80
+
+    SessionSummary:
+      type: object
+      required: [id, title, message_count, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        title:
+          type: [string, "null"]
+          description: First question (trimmed), or null for an empty session
+        message_count: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    SessionDetail:
+      allOf:
+        - $ref: "#/components/schemas/SessionSummary"
+        - type: object
+          required: [messages]
+          properties:
+            messages:
+              type: array
+              items: { $ref: "#/components/schemas/Message" }
+
+    MessageCreate:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+
+    Message:
+      type: object
+      required: [id, role, content, tool_calls, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        role: { type: string, enum: [user, assistant] }
+        content: { type: string }
+        tool_calls:
+          type: array
+          description: Tools the agent used to produce this message (empty for user messages)
+          items: { $ref: "#/components/schemas/ToolCall" }
+        created_at: { type: string, format: date-time }
+
+    ToolCall:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          examples: [GLOBAL_QUOTE, TIME_SERIES_DAILY, TOP_GAINERS_LOSERS]
+        arguments:
+          type: object
+          additionalProperties: true
+
+    ChatTurn:
+      type: object
+      required: [user_message, assistant_message]
+      properties:
+        user_message: { $ref: "#/components/schemas/Message" }
+        assistant_message: { $ref: "#/components/schemas/Message" }
+
+    Symbol:
+      type: string
+      pattern: "^[A-Za-z]{1,10}(\\.[A-Za-z]{1,2})?$"
+      examples: [AAPL, BRK.B]
+
+    WatchlistItemCreate:
+      type: object
+      required: [symbol]
+      properties:
+        symbol: { $ref: "#/components/schemas/Symbol" }
+        note:
+          type: string
+          maxLength: 200
+
+    WatchlistItem:
+      type: object
+      required: [symbol, created_at]
+      properties:
+        symbol:
+          type: string
+          description: Always uppercase
+        note: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
