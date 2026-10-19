@@ -104,7 +104,7 @@ then checks that both services run the new commit and smoke-tests the live
 site. See [docs/deployment.md](docs/deployment.md) for the architecture, the
 security model, and one-time setup.
 
-Live URL: _TODO (Phase 7)._
+Live URL: https://stock-assistant-web.onrender.com (free tier: the first request after 15 idle minutes takes about a minute)
 
 ## AI-assisted development
 

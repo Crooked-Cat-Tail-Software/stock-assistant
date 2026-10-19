@@ -63,9 +63,12 @@ minutes fails the pipeline.
    - `DATABASE_URL`: the Neon connection string
    - `OPENAI_API_KEY`, `ALPHAVANTAGE_API_KEY`: your keys
    - `INTERNAL_API_TOKEN`: the same generated value **on both services**
-3. Wait for both services to build and become healthy. Note their URLs. If the
-   API's URL isn't `https://stock-assistant-api.onrender.com`, update
-   `BACKEND_URL` on `stock-assistant-web` to match.
+3. Wait for both services to build and become healthy. Note their URLs. Render
+   adds a suffix when a name is taken. Ours is
+   `https://stock-assistant-api-duq5.onrender.com`. `BACKEND_URL` on
+   `stock-assistant-web` **must** match the API's real URL, because nginx sends
+   the internal token to that host. If it was ever wrong, rotate
+   `INTERNAL_API_TOKEN` on both services.
 4. For each service, go to **Settings → Deploy Hook** and copy the URL. It's a
    secret: anyone with it can trigger deploys.
 
@@ -74,7 +77,7 @@ minutes fails the pipeline.
 ```bash
 gh secret set RENDER_DEPLOY_HOOK_BACKEND     # paste the API's deploy hook
 gh secret set RENDER_DEPLOY_HOOK_FRONTEND    # paste the web service's deploy hook
-gh variable set BACKEND_URL --body "https://stock-assistant-api.onrender.com"
+gh variable set BACKEND_URL --body "https://stock-assistant-api-duq5.onrender.com"
 gh variable set FRONTEND_URL --body "https://stock-assistant-web.onrender.com"
 gh variable set DEPLOY_ENABLED --body "true"
 ```
@@ -99,5 +102,6 @@ tab.
 |---------|-------|
 | Deploy job times out waiting for a commit | The Render dashboard deploy logs for that service (build errors, failing health check) |
 | `/api/*` returns 403 through the website | `INTERNAL_API_TOKEN` differs between the two services |
+| `/api/*` through the website shows another service's page ("Service Suspended") | `BACKEND_URL` points at someone else's Render service. Fix it, then rotate `INTERNAL_API_TOKEN` |
 | Website loads but `/api` gives 502/504 | `BACKEND_URL` on the web service, and whether the API service is up |
 | Health shows `"database": "unavailable"` | `DATABASE_URL` is correct and includes `?sslmode=require`, and the Neon project is active |
