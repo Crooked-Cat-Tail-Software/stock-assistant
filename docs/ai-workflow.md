@@ -254,3 +254,37 @@ email as author (I was told it becomes public).
 - Render's actual client-IP header behavior, and the live deploy (Phase 7)
 
 **Reviewed by hand:** _TODO (me)._
+
+### 2026-10-15 → 10-19 — Publishing and first deployment (Phase 6 follow-up / Phase 7)
+
+**First CI run on GitHub failed.** `astral-sh/setup-uv@v10` doesn't exist: that
+project publishes only exact version tags. I had checked the latest *release*
+but assumed a major-version tag existed. Fixed by pinning **every** action to
+its release commit SHA (version in a comment), which is GitHub's
+supply-chain-hardening recommendation. The second run was green: 37 unit +
+23 Postgres integration tests, 5 e2e tests, and the Docker smoke test.
+
+**Render setup (done by me in the dashboard):** connected Render's GitHub app to
+this repo only (least privilege), created the Blueprint, and entered secrets
+directly in Render and GitHub. None went through the AI chat.
+
+**Problem found during verification:** Render named the API
+`stock-assistant-api-duq5` because the plain name belongs to another account.
+`render.yaml` had the guessed URL, so nginx forwarded `/api`, and with it the
+internal token, to that unrelated, suspended service. Editing the value in the
+dashboard didn't stick, because a Blueprint sync reapplied the wrong value from
+`render.yaml`. Fixed at the source by correcting `render.yaml`. Because the
+token had been sent to another host, it is being rotated. The AI found the
+real URLs through Render's deployment statuses on GitHub
+(`gh api .../deployments`), without needing dashboard access.
+
+**Lesson:** the platform-assigned URL should be read back after creation,
+never assumed. `docs/deployment.md` now says so.
+
+**Verified live:**
+- Backend health `ok` with Neon connected and the deployed commit reported
+- Direct backend requests return 403
+- Website `/api/*` returns 200 once both services share the token
+- Both deploy-hook secrets present (names only)
+
+**Reviewed by hand:** _TODO (me)._
