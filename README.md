@@ -99,9 +99,9 @@ from the contract with `npm run gen:api`.
 ## Deployment
 
 Production runs on Render (two Docker services from `render.yaml`) with a Neon
-Postgres database. GitHub Actions deploys **only after every CI job passes**,
-then checks that both services run the new commit and smoke-tests the live
-site. See [docs/deployment.md](docs/deployment.md) for the architecture, the
+Postgres database. Render deploys a commit **only after every CI check on it
+passes** (`autoDeployTrigger: checksPass`). Then a GitHub workflow checks that
+both services run that commit and smoke-tests the live site. See [docs/deployment.md](docs/deployment.md) for the architecture, the
 security model, and one-time setup.
 
 Live URL: https://stock-assistant-web.onrender.com (free tier: the first request after 15 idle minutes takes about a minute)

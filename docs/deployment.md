@@ -16,19 +16,26 @@ browser ──HTTPS──▶ stock-assistant-web (nginx: React app + /api proxy)
 ## How a change reaches production (CD)
 
 1. Push to `main`, or merge a pull request.
-2. GitHub Actions runs every CI job: contract, backend (including Postgres),
-   frontend, end-to-end, and Docker smoke test.
-3. **Only if all of them pass**, the `deploy` job:
-   - triggers the backend's Render deploy hook, then waits until
-     `/api/health` reports this commit (`RENDER_GIT_COMMIT`);
-   - triggers the frontend's deploy hook, then waits until `/version` reports
-     this commit;
+2. GitHub Actions runs every CI check (`.github/workflows/ci.yml`): contract,
+   backend (including Postgres), frontend, end-to-end, and Docker smoke test.
+3. **Render deploys the commit only if all of those checks pass.** Both
+   services use `autoDeployTrigger: checksPass` in `render.yaml`. If any check
+   fails, production keeps running the previous version.
+4. Render reports each deploy back to GitHub. When the web service's deploy
+   succeeds, `.github/workflows/verify-deploy.yml`:
+   - waits until the frontend (`/version`) and the backend (`/api/health`) both
+     report the deployed commit;
    - smoke-tests production: health through the frontend, the session list, the
      security headers, and that the backend **refuses direct requests (403)**.
 
-Render's own auto-deploy is off (`autoDeployTrigger: off`), so untested code
-never reaches production. A deploy that fails or doesn't come up within 15
-minutes fails the pipeline.
+Verification is a separate workflow on purpose. With `checksPass`, Render waits
+for every check on a commit. A verification job inside CI would wait for
+Render while Render waited for it, so nothing would deploy.
+
+Trade-off: Render deploys the two services independently, so for a minute or
+two the new frontend can talk to the old backend (or the reverse). Changes to
+the API should stay backward compatible for one deploy. Migrations run when
+the backend starts.
 
 ## Security model
 
@@ -69,22 +76,21 @@ minutes fails the pipeline.
    `stock-assistant-web` **must** match the API's real URL, because nginx sends
    the internal token to that host. If it was ever wrong, rotate
    `INTERNAL_API_TOKEN` on both services.
-4. For each service, go to **Settings → Deploy Hook** and copy the URL. It's a
-   secret: anyone with it can trigger deploys.
+4. Check that **Settings → Auto-Deploy** shows "After CI checks pass" on both
+   services. The Blueprint sets this.
 
-### 3. Connect GitHub Actions
+### 3. Tell GitHub where production is
+
+The verify workflow needs the two public URLs (not secrets):
 
 ```bash
-gh secret set RENDER_DEPLOY_HOOK_BACKEND     # paste the API's deploy hook
-gh secret set RENDER_DEPLOY_HOOK_FRONTEND    # paste the web service's deploy hook
 gh variable set BACKEND_URL --body "https://stock-assistant-api-duq5.onrender.com"
 gh variable set FRONTEND_URL --body "https://stock-assistant-web.onrender.com"
-gh variable set DEPLOY_ENABLED --body "true"
 ```
 
-The next push to `main` deploys automatically once CI passes. To redeploy
-without a code change, re-run the latest workflow run on `main` in the Actions
-tab.
+No deploy hooks or Render API keys are stored in GitHub: Render pulls the code
+itself once the checks pass. To redeploy without a code change, use **Manual
+Deploy → Deploy latest commit** on the service in Render.
 
 ## Free tier behavior
 
@@ -100,7 +106,8 @@ tab.
 
 | Symptom | Check |
 |---------|-------|
-| Deploy job times out waiting for a commit | The Render dashboard deploy logs for that service (build errors, failing health check) |
+| Checks passed but nothing deployed | `autoDeployTrigger` is `checksPass` on both services (Render → service → Settings → Auto-Deploy), and the Render GitHub app can see this repo |
+| Verify workflow times out waiting for a commit | The Render dashboard deploy logs for that service (build errors, failing health check) |
 | `/api/*` returns 403 through the website | `INTERNAL_API_TOKEN` differs between the two services |
 | `/api/*` through the website shows another service's page ("Service Suspended") | `BACKEND_URL` points at someone else's Render service. Fix it, then rotate `INTERNAL_API_TOKEN` |
 | Website loads but `/api` gives 502/504 | `BACKEND_URL` on the web service, and whether the API service is up |

@@ -1,0 +1,53 @@
+name: Verify production deploy
+
+# Render deploys main only after every CI check passes (render.yaml:
+# autoDeployTrigger: checksPass) and reports each deploy back to GitHub as a
+# deployment. When the web service's deploy succeeds, check the live site.
+#
+# This must be a separate workflow: if it were a job in CI, Render would wait
+# for it to pass while it waited for Render.
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.event.deployment.sha }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify live site
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      contains(github.event.deployment.environment, 'stock-assistant-web')
+    runs-on: ubuntu-latest
+    env:
+      BACKEND_URL: ${{ vars.BACKEND_URL }}
+      FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+      SHA: ${{ github.event.deployment.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.deployment.sha }}
+
+      # Render deploys the two services independently; wait until both run this commit.
+      - name: Frontend runs this commit
+        run: ops/scripts/wait-for-commit.sh "$FRONTEND_URL/version" "$SHA" 300
+      - name: Backend runs this commit
+        run: ops/scripts/wait-for-commit.sh "$BACKEND_URL/api/health" "$SHA" 900
+
+      - name: Smoke test production
+        run: |
+          # The app works through the frontend (nginx adds the internal token)...
+          curl -fsS "$FRONTEND_URL/api/health" | jq -e '.status == "ok" and .database == "ok"'
+          curl -fsS "$FRONTEND_URL/api/sessions" -o /dev/null
+          curl -fsSI "$FRONTEND_URL/" | grep -qi "content-security-policy"
+          # ...and the backend refuses requests that bypass it.
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/api/sessions")
+          if [ "$code" != "403" ]; then
+            echo "::error::Backend answered $code to a direct request; expected 403"
+            exit 1
+          fi
+          echo "✓ Production is healthy and running $SHA"

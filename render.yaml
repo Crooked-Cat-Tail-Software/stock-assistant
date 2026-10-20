@@ -1,7 +1,8 @@
 # Render Blueprint: infrastructure as code for the production deployment.
 # Create it once in the Render dashboard (New → Blueprint → this repo); see
-# docs/deployment.md. Deploys are triggered by GitHub Actions only after all CI
-# jobs pass, so Render's own auto-deploy is turned off.
+# docs/deployment.md. Render deploys a commit on main only after every GitHub
+# check on it has passed (autoDeployTrigger: checksPass); a separate workflow
+# then verifies the live site.
 #
 # Values marked `sync: false` are secrets: Render asks for them when the
 # Blueprint is first created and they are never stored in this file.
@@ -15,7 +16,7 @@ services:
     plan: free
     region: oregon            # keep the Neon database in the same area (AWS us-west-2)
     healthCheckPath: /api/health
-    autoDeployTrigger: off    # GitHub Actions deploys after tests pass
+    autoDeployTrigger: checksPass   # deploy only after all CI checks pass
     envVars:
       - key: DATABASE_URL     # Neon connection string (free tier, doesn't expire)
         sync: false
@@ -40,7 +41,7 @@ services:
     plan: free
     region: oregon
     healthCheckPath: /
-    autoDeployTrigger: off
+    autoDeployTrigger: checksPass
     envVars:
       - key: PORT             # nginx listens on 8080
         value: "8080"

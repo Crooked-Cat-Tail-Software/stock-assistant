@@ -288,3 +288,34 @@ never assumed. `docs/deployment.md` now says so.
 - Both deploy-hook secrets present (names only)
 
 **Reviewed by hand:** _TODO (me)._
+
+### 2026-10-19 — Deploy hooks replaced by Render's `checksPass`
+
+**What happened:** the deploy job failed three times because both deploy-hook
+secrets held a 64-character `openssl` token instead of Render's hook URL. The
+two values are easy to confuse: one is *generated*, the other is *copied* from
+Render. Each fix made the failure clearer:
+1. curl reported `Could not resolve host: ***`.
+2. A format check reported "not a deploy hook URL, 64 characters".
+3. Non-revealing yes/no diagnostics showed "only 0-9 and a-f: yes, no
+   https://, no ?key=", which confirmed the value was a token and the check
+   was not over-strict.
+
+While writing the diagnostics, the AI first used `eval` (flagged by
+shellcheck), then `[[ ]]; $?`, which would have aborted under GitHub's
+`bash -e`. Testing exactly as GitHub runs it (`bash -e`) caught this before
+pushing. The final version uses `case` patterns.
+
+**My decision:** remove deploy hooks entirely. Render now deploys only after
+all GitHub checks pass (`autoDeployTrigger: checksPass`), so there are no
+deploy secrets in GitHub at all.
+
+**Design point the AI caught:** with `checksPass`, a verification job inside CI
+would deadlock: Render would wait for the job while the job waited for Render.
+Verification moved to `verify-deploy.yml`, triggered by Render's
+`deployment_status` event after a successful web deploy.
+
+**Trade-off accepted:** the two services now deploy independently rather than
+backend-first, so the API must stay backward compatible for one deploy.
+
+**Reviewed by hand:** _TODO (me)._

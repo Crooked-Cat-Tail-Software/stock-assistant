@@ -68,6 +68,10 @@ npm run e2e             # end-to-end; starts its own servers on ports 8001/4173
    every health check, then smoke-tests through nginx (health, security
    header, one chat turn).
 
+Render deploys only commits on which all five pass. After a deploy,
+`.github/workflows/verify-deploy.yml` smoke-tests the live site (see
+`docs/deployment.md`).
+
 ## Writing new tests
 
 - New endpoint: add an integration test that calls `assert_conforms(...)` on
