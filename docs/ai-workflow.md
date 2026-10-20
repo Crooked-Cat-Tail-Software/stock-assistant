@@ -319,3 +319,35 @@ Verification moved to `verify-deploy.yml`, triggered by Render's
 backend-first, so the API must stay backward compatible for one deploy.
 
 **Reviewed by hand:** _TODO (me)._
+
+### 2026-10-20 — Production verification found two deployment issues
+
+**Rate limit didn't work on Render.** I verified it without any API cost by
+posting to a nonexistent session: the limit is checked before the session
+lookup, so each request counts but never calls OpenAI. 12 of 12 requests got
+through. A temporary `/__whoami` page (showing the caller only their own
+address data) revealed Render's chain: Cloudflare → changing 10.x Render
+node → 127.0.0.1 proxy → nginx. My Phase 6 config took the last
+`X-Forwarded-For` entry, which changes almost every request. That assumption
+had been explicitly marked "verify in Phase 7", and verification caught it.
+
+**Fix:** trust only the 127.0.0.1 proxy and only Cloudflare's
+`CF-Connecting-IP`. A client-sent `CF-Connecting-IP` was rejected by
+Cloudflare with 403, so it can't be forged. I checked uvicorn 0.54's
+proxy-header source to confirm the backend takes the leftmost XFF entry,
+which nginx sets. I tested both modes locally (Compose, and the image with
+Render's settings) before pushing.
+
+**Result in production:** 10 requests allowed, then 429 with `Retry-After`.
+Fake `X-Forwarded-For`, `X-Real-IP`, and `True-Client-IP` headers don't get
+around it.
+
+**Second finding — CI gate gap:** the commit that changed `render.yaml`
+deployed 1 second after the push, while CI was still running. Commits that
+don't touch `render.yaml` deployed 3 seconds after CI passed. Render's
+Blueprint auto-sync applies config changes immediately. Documented in
+`docs/deployment.md` with two mitigations. The cleanup commit (removing
+`/__whoami`) deliberately leaves `render.yaml` untouched to confirm that
+normal commits stay gated.
+
+**Reviewed by hand:** _TODO (me)._

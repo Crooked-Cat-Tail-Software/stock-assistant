@@ -39,15 +39,52 @@ the backend starts.
 
 ## Security model
 
-- Secrets live only in Render's environment settings and GitHub Actions
-  secrets. Values marked `sync: false` in `render.yaml` are never committed.
+- Secrets live only in Render's environment settings. Values marked
+  `sync: false` in `render.yaml` are never committed, and GitHub stores no
+  deploy secrets.
 - **Shared secret between frontend and backend.** On Render the backend has a
-  public URL, so without a check a client could skip nginx, fake
-  `X-Forwarded-For`, and get around the rate limit. nginx sends
-  `X-Internal-Token`, and the backend returns 403 to any `/api/*` request
-  (except health) without it.
-- The rate limit (10 questions per minute per client IP) caps OpenAI spend.
-  Set `AGENT_MODE=fake` on the API service to run at no cost.
+  public URL, so without a check a client could skip nginx and call it
+  directly. nginx sends `X-Internal-Token`, and the backend returns 403 to any
+  `/api/*` request (except health) without it.
+- **Rate limit (10 questions per minute per visitor)** caps OpenAI spend. Set
+  `AGENT_MODE=fake` on the API service to run at no cost.
+
+### How the visitor's IP is found (verified on Render, 2026-10-20)
+
+The rate limit is only as good as the client IP it counts by. On Render a
+request travels:
+
+```
+visitor → Cloudflare edge (changes) → Render node 10.x (changes) → local proxy 127.0.0.1 → nginx
+X-Forwarded-For: "<anything the client sent>,<visitor>, <cloudflare edge>, <render node>"
+CF-Connecting-IP: "<visitor>"   (set by Cloudflare; a client-sent value is rejected with 403)
+```
+
+- Taking the last `X-Forwarded-For` entry (the first design) gave a different
+  10.x address almost every request, so the limit **never triggered**.
+  Production testing found this: 12 of 12 requests got through.
+- nginx now trusts only the local proxy (`TRUSTED_PROXY_CIDR=127.0.0.1/32`)
+  and only `CF-Connecting-IP` (`REAL_IP_HEADER`). It then overwrites
+  `X-Forwarded-For` with that single address for the backend, whose uvicorn
+  takes the leftmost entry.
+- Verified in production: the 11th request within a minute gets 429 with
+  `Retry-After`, and fake `X-Forwarded-For`, `X-Real-IP`, or `True-Client-IP`
+  headers don't get around it.
+- Compose keeps `REAL_IP_HEADER=X-Forwarded-For` with nothing trusted, so
+  nginx uses the direct peer address.
+
+### Known gap: `render.yaml` changes skip the CI gate
+
+Render's Blueprint **auto-sync** applies a changed `render.yaml` immediately
+and redeploys the affected services, **without waiting for CI** (observed for
+commit `001e12a`, which deployed 1 second after the push). Ordinary code
+commits are still gated. Two ways to handle it:
+
+1. Turn off auto-sync in Render (Blueprint → Settings), and sync manually
+   after CI passes. This is stricter, and is the recommended option.
+2. Keep auto-sync, but commit `render.yaml` changes on their own, never
+   together with code changes, and only after the code they rely on is already
+   live.
 
 ## One-time setup
 
