@@ -14,6 +14,15 @@ server {
     real_ip_header X-Forwarded-For;
     real_ip_recursive off;
 
+    # TEMPORARY diagnostic (remove after fixing client-IP detection on Render):
+    # shows the caller only the address information nginx sees for their own
+    # request. No secrets, and no other visitors' data.
+    location = /__whoami {
+        default_type application/json;
+        add_header Cache-Control "no-store";
+        return 200 '{"remote_addr":"$remote_addr","realip_remote_addr":"$realip_remote_addr","x_forwarded_for":"$http_x_forwarded_for","cf_connecting_ip":"$http_cf_connecting_ip","true_client_ip":"$http_true_client_ip","x_real_ip":"$http_x_real_ip"}\n';
+    }
+
     # Which commit this frontend was built from; CI checks it after deploying.
     location = /version {
         default_type text/plain;
