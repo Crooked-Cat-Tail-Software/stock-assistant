@@ -15,6 +15,7 @@ FROM nginxinc/nginx-unprivileged:1.30-alpine
 ENV BACKEND_URL=http://backend:8000 \
     INTERNAL_API_TOKEN="" \
     TRUSTED_PROXY_CIDR=127.0.0.1/32 \
+    REAL_IP_HEADER=X-Forwarded-For \
     RENDER_GIT_COMMIT=local
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html

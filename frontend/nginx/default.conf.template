@@ -6,12 +6,17 @@ server {
     root /usr/share/nginx/html;
     server_tokens off;
 
-    # Client IP. In Compose nothing is trusted (127.0.0.1/32), so $remote_addr is
-    # the real peer and a client-supplied X-Forwarded-For is ignored. Behind a
-    # platform load balancer (Render), TRUSTED_PROXY_CIDR=0.0.0.0/0 takes the
-    # last X-Forwarded-For entry, the one added by the load balancer.
+    # Client IP, used by the backend's per-IP rate limit.
+    # - Compose: nothing in front of nginx, so $remote_addr is the real peer.
+    #   (TRUSTED_PROXY_CIDR=127.0.0.1/32 matches no client; headers are ignored.)
+    # - Render: requests pass Cloudflare → a Render node (10.x, changes per
+    #   request) → a local proxy (127.0.0.1) → nginx. X-Forwarded-For ends with
+    #   the changing 10.x node and can be prefixed by the client, so it's unusable.
+    #   Cloudflare's CF-Connecting-IP is the visitor's address and can't be set by
+    #   clients (Cloudflare rejects it). So trust only the local proxy, and only
+    #   that header: TRUSTED_PROXY_CIDR=127.0.0.1/32, REAL_IP_HEADER=CF-Connecting-IP.
     set_real_ip_from ${TRUSTED_PROXY_CIDR};
-    real_ip_header X-Forwarded-For;
+    real_ip_header ${REAL_IP_HEADER};
     real_ip_recursive off;
 
     # TEMPORARY diagnostic (remove after fixing client-IP detection on Render):
