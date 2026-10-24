@@ -456,3 +456,55 @@ before the template step.
   chat works. This also closes the gap left open in Phase 9.
 
 **Reviewed by hand:** _TODO (me)._
+
+### 2026-10-24 — Spike #18 and hybrid market data #19 (yfinance first)
+
+**Asked:** Could yfinance replace Alpha Vantage to avoid the rate limit?
+
+**AI did:** first separated the two limits: Alpha Vantage's ~25/day (data) and
+the app's 10 questions/minute (protects OpenAI spend, unaffected by the data
+source). It flagged yfinance's risks (unofficial, Yahoo throttles data-center
+IPs, personal-use terms), then proposed testing before building.
+
+**Spike (#18):** the same script ran locally and on two GitHub-hosted runners
+(data-center IPs, a stand-in for Render), counting empty results as failures.
+The results were the same everywhere: 32/33 requests OK, a 20-request burst
+20/20, about 0.08 s each. The one failure was news, which returned nothing
+**even locally**, so that's a yfinance limitation, not blocking. The first
+cloud logs didn't say which request failed; the AI noticed, added the name
+to the summary, and reran before drawing conclusions.
+
+**My decision:** hybrid. yfinance for quotes and history, Alpha Vantage for
+news, movers, fundamentals, and fallback.
+
+**Built (#19):** `market_tools.py` with `get_quote` and `get_price_history`
+(validated symbols, thread offload, 10 s timeout, a 60 s / 15 min cache,
+errors returned as results that name the Alpha Vantage fallback). The agent
+has both these tools and the MCP server, with instructions on which to use.
+
+**Problems the AI caught along the way:**
+- An unknown symbol raises for quotes but returns empty data for history.
+  Both are handled and tested.
+- The warning filter didn't silence pandas noise. The AI wrongly blamed path
+  matching first, then captured a warning and found the real cause: yfinance
+  installs its own "show deprecation warnings" filter when imported, which
+  overrode the app's. Fixed by importing yfinance before adding the filter.
+- That fix made the test fake ineffective: the tests would have **silently
+  called the real Yahoo**. The fake now replaces the module's own `yf`, and
+  the unit suite was run with **sockets disabled** to prove there are no
+  network calls (54 passed).
+- The docs still said the agent "connects only to Alpha Vantage". The AI
+  updated the spec, README (diagram and table), AGENTS.md rule 7, and the
+  subagent definitions, and fixed a spec criterion that the keyless fake
+  agent would have appeared to fail.
+
+**Verified:** 16 new tool tests and 1 agent-registration test. Three
+deliberate breakages (validation, cache, log content) each caught. Real
+Yahoo calls checked once (AAPL, NVDA 1y → 37 points / 1.9 KB, BRK.B, unknown
+symbol → fallback hint). `make test` (113) and `make lint` are clean. The
+Docker image builds (88 → 152 MB), and peak memory with yfinance loaded is
+186 MB (Render's free plan allows 512 MB).
+
+**Still to verify:** one real question on Render after deploy.
+
+**Reviewed by hand:** _TODO (me)._

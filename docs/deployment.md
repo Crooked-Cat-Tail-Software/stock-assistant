@@ -10,7 +10,7 @@ browser ──HTTPS──▶ stock-assistant-web (nginx: React app + /api proxy)
                           ▼  HTTPS (public URL; free services can't use the private network)
                    stock-assistant-api (FastAPI) ──TLS──▶ Neon Postgres
                           │
-                          └─▶ OpenAI + Alpha Vantage MCP
+                          └─▶ OpenAI + Yahoo Finance (yfinance) + Alpha Vantage MCP
 ```
 
 ## How a change reaches production (CD)

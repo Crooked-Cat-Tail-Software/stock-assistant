@@ -5,6 +5,8 @@ THIRD_PARTY_NOTICES.md). Changes from the example:
 
 - Connects only to the Alpha Vantage MCP server. The example's `filesystem`
   server is removed because it would let a prompt read files on the server.
+- Adds read-only yfinance tools for quotes and price history (issue #19), so
+  most questions don't use Alpha Vantage's free quota.
 - One MCP connection is opened when the app starts and shared by all requests,
   instead of being tied to one terminal session.
 - Conversation history comes from our own database rather than `SQLiteSession`.
@@ -22,16 +24,27 @@ from agents.items import ToolCallItem
 from agents.mcp import MCPServerStreamableHttp, MCPServerStreamableHttpParams
 
 from app.agent.base import AgentError, AgentReply, HistoryItem
+from app.agent.market_tools import TOOLS as MARKET_TOOLS
 
 logger = logging.getLogger(__name__)
 
 INSTRUCTIONS = """\
-You are a financial research assistant. Use the Alpha Vantage tools to answer
-questions about stocks, forex, crypto, and markets with current data.
+You are a financial research assistant. Answer questions about stocks, forex,
+crypto, and markets with current data from your tools.
 
+Which tools to use:
+- Current price of a stock or ETF: use get_quote first.
+- How a stock moved over time, trends, or comparisons: use get_price_history first.
+- If get_quote or get_price_history returns a result with "error", call the
+  Alpha Vantage tool named in its "fallback" field instead (GLOBAL_QUOTE or
+  TIME_SERIES_DAILY).
+- News, top gainers and losers, company fundamentals, earnings, forex, crypto,
+  and technical indicators: use the Alpha Vantage tools.
+
+Rules:
 - Always fetch data with a tool rather than relying on memory for prices or figures.
-- Say which date or time the data is from.
-- If a tool reports a rate limit or an error, say so plainly. Do not guess numbers.
+- Say which date or time the data is from, and which source it came from.
+- If every source fails or reports a rate limit, say so plainly. Do not guess numbers.
 - Keep answers concise and use short tables when comparing tickers.
 - You provide information, not personalized investment advice. Say so if asked
   whether to buy or sell.
@@ -70,7 +83,8 @@ class OpenAIAgent:
             name="Stock Research Assistant",
             instructions=INSTRUCTIONS,
             model=model,
-            mcp_servers=[self._mcp],
+            tools=list(MARKET_TOOLS),  # yfinance first (issue #19)
+            mcp_servers=[self._mcp],  # Alpha Vantage: fallback, news, fundamentals
         )
 
     async def start(self) -> None:

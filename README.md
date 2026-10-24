@@ -5,8 +5,8 @@
 **Live:** <https://stock-assistant-web.onrender.com>. It's on Render's free tier,
 so the first request after 15 idle minutes takes about a minute to wake up.
 
-Ask market questions in plain English and get answers backed by **live Alpha
-Vantage data**. An AI agent decides which market-data tools to call, shows
+Ask market questions in plain English and get answers backed by **live market
+data** from Yahoo Finance and Alpha Vantage. An AI agent decides which market-data tools to call, shows
 which ones it used, and saves the conversation so you can return to it. A
 personal watchlist lets you start research on a ticker in one click.
 
@@ -26,7 +26,7 @@ gainers?"* take several lookups and some manual comparison.
 
 | | Feature | Expected behavior |
 |---|---|---|
-| F1 | **Ask a question** | The agent calls Alpha Vantage tools over MCP and replies, usually in under 30 s. The reply shows which tools were used (e.g. `GLOBAL_QUOTE · AAPL`). |
+| F1 | **Ask a question** | The agent picks market-data tools: **yfinance** for quotes and price history, **Alpha Vantage** (over MCP) for news, top movers, and fundamentals, and as the fallback if Yahoo fails. Replies usually take under 30 s and show which tools were used (e.g. `get_quote · AAPL`). |
 | F2 | **Conversation history** | Every chat is saved and listed newest first. Reopening one restores the full history, and follow-ups use the earlier turns as context. |
 | F3 | **Delete a conversation** | After you confirm, it's removed along with its messages. |
 | F4 | **Watchlist** | Add tickers (stored uppercase, e.g. `brk.b` → `BRK.B`) with an optional note. Duplicates are rejected. |
@@ -34,8 +34,10 @@ gainers?"* take several lookups and some manual comparison.
 | F6 | **Health check** | `GET /api/health` reports the API, the database, and the deployed commit. |
 
 **Guardrails:** questions are capped at 2,000 characters. Each visitor gets
-10 questions a minute, which caps OpenAI spend. The agent can use **only** the
-Alpha Vantage tools (no file or shell access). API keys never reach the
+10 questions a minute, which caps OpenAI spend. The agent can use **only**
+read-only market-data tools (no file or shell access).
+Yahoo data is cached briefly, and Alpha Vantage's ~25 free requests a day are
+kept for what Yahoo can't provide. API keys never reach the
 browser or the logs. Answers are informational, not investment advice.
 
 The full specification, with acceptance criteria, is in
@@ -57,6 +59,7 @@ flowchart LR
 
     db[("Postgres<br/>Neon (prod) · container (local)")]
     openai["OpenAI API<br/>(gpt-4.1-mini)"]
+    yahoo["Yahoo Finance<br/>(yfinance)"]
     mcp["Alpha Vantage<br/>MCP server"]
 
     user -- "HTTPS (via Cloudflare)" --> web
@@ -64,14 +67,15 @@ flowchart LR
     api --> agent
     api -- "SQLAlchemy, Alembic migrations" --> db
     agent -- "model calls" --> openai
-    agent -- "market-data tools (MCP)" --> mcp
+    agent -- "quotes, price history (first)" --> yahoo
+    agent -- "news, movers, fundamentals, fallback (MCP)" --> mcp
 ```
 
 | Component | Technology | Role |
 |-----------|------------|------|
 | **Frontend** | React 19, Vite, TypeScript, nginx | Chat, history, and watchlist UI. All API calls go through one typed client generated from [`openapi.yaml`](openapi.yaml). nginx serves the app, forwards `/api`, sets CSP and other security headers, and passes on the real client IP. |
 | **Backend** | Python 3.13, FastAPI, SQLAlchemy, Alembic | Implements the [API contract](openapi.yaml): sessions, messages, watchlist, health. Enforces the rate limit and the question-length limit. Rejects requests that don't come through nginx. |
-| **AI agent** | OpenAI Agents SDK + [Alpha Vantage MCP](https://github.com/alphavantage/alpha_vantage_mcp) | Answers questions by calling market-data tools. Adapted from the Alpha Vantage agent example, with the filesystem server removed and tracing off. A `FakeAgent` replaces it in tests and keyless demos. |
+| **AI agent** | OpenAI Agents SDK, [yfinance](https://github.com/ranaroussi/yfinance) tools, [Alpha Vantage MCP](https://github.com/alphavantage/alpha_vantage_mcp) | Answers questions by calling market-data tools: yfinance for quotes and price history (cached, 10 s timeout), Alpha Vantage for news, movers, fundamentals, and fallback. Adapted from the Alpha Vantage agent example, with the filesystem server removed and tracing off. A `FakeAgent` replaces it in tests and keyless demos. |
 | **Database** | Postgres 17 (Neon in production), SQLite for quick dev | Conversations, messages, and watchlist. The schema is managed by Alembic migrations. |
 | **Containers** | Docker, Docker Compose | One command runs the full stack locally. Same images as production. Non-root, with health checks. |
 | **CI** | GitHub Actions | Contract check, backend (unit + integration on Postgres), frontend, end-to-end (Playwright), and Docker smoke test on every push and PR. |
@@ -99,8 +103,9 @@ cp .env.example .env             # then set AGENT_MODE=openai, OPENAI_API_KEY, A
 docker compose up -d             # restart with the keys
 ```
 
-A free Alpha Vantage key is available at
-<https://www.alphavantage.co/support/#api-key>. It allows about 25 requests a day.
+Quotes and price history come from Yahoo Finance and need no key. A free Alpha
+Vantage key (<https://www.alphavantage.co/support/#api-key>, about 25 requests
+a day) is still needed for news, top movers, fundamentals, and the fallback.
 
 | Service | What it does |
 |---------|--------------|
@@ -153,7 +158,7 @@ make test-all    # + Playwright end-to-end (once: cd frontend && npx playwright 
 | Frontend unit | `frontend/src/**/*.test.ts(x)` | API client, validation (checked against the contract), UI flows |
 | End-to-end | `frontend/e2e/` | The production build in a real browser against the real backend, covering every feature |
 
-No test calls OpenAI or Alpha Vantage. Coverage is about 97% (backend) and
+No test calls OpenAI, Alpha Vantage, or Yahoo. Coverage is about 97% (backend) and
 93% (frontend). Details, and a map from each feature to its tests:
 [docs/testing.md](docs/testing.md).
 
@@ -219,3 +224,8 @@ is addressed:
 The agent code is adapted from the MIT-licensed
 [Alpha Vantage MCP agent example](https://github.com/alphavantage/alpha_vantage_mcp/tree/main/examples/agent).
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Quotes and price history use [yfinance](https://github.com/ranaroussi/yfinance)
+(Apache-2.0), an unofficial library that reads Yahoo Finance data. Yahoo
+intends that data for personal and educational use, which fits this class
+project. A commercial version would need a licensed data provider.
