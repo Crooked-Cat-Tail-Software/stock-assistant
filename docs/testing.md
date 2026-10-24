@@ -68,7 +68,12 @@ npm run e2e             # end-to-end; starts its own servers on ports 8001/4173
    every health check, then smoke-tests through nginx (health, security
    header, one chat turn).
 
-Render deploys only commits on which all five pass. After a deploy,
+6. **Production image:** builds the root `Dockerfile` (nginx + API in one
+   container, which is what Render runs), then smoke-tests it: page,
+   `/version`, health with commit, CSP, a chat turn, and the API bound to
+   loopback only.
+
+Render deploys only commits on which all six pass. After a deploy,
 `.github/workflows/verify-deploy.yml` smoke-tests the live site (see
 `docs/deployment.md`).
 

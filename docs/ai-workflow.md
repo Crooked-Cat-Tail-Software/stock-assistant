@@ -549,3 +549,55 @@ because every tool is read-only.
 **Still to verify:** one real news question on Render after deploy.
 
 **Reviewed by hand:** _TODO (me)._
+
+### 2026-10-24 — Bug #24: the live site broke after 15 idle minutes (PR A: single-service image)
+
+**How it was found:** I hit "The assistant's data service failed" from the
+watchlist's "Ask about". The AI first suspected memory, but the responses
+themselves told a different story: Render's own 502 page (`x-render-routing:
+no-deploy`) in 0.2 s through the site, while a direct call to the API took
+53 s and then worked. That is a sleeping API.
+
+**Hypothesis tested before changing anything:** after 17 idle minutes,
+12/12 requests through the site failed over 2 minutes. One direct request woke
+the API (51 s), and then the site worked. On Render's free plan, requests from
+the web service don't wake a sleeping API, and visitors never call the API
+directly, so the site stayed broken after every idle period. Earlier "it works
+now" checks had been waking it by accident.
+
+**My decision:** run the frontend and backend as one Render service.
+
+**Built (PR A, no `render.yaml` change yet):**
+- A root `Dockerfile` with nginx (same config template) and the API on
+  127.0.0.1, both non-root.
+- `ops/single-service/start.sh`: migrations → API → nginx, and the container
+  exits if either process dies.
+- A CI job that smoke-tests the production image.
+- `verify-deploy.yml` handles both setups.
+- Docs rewritten for one service.
+
+**Problems found while building:**
+- nginx initially accepted requests while the API was still importing pandas,
+  answering 502. On Render, that window is exactly when the **waking visitor's**
+  request arrives. The start script now waits for the API before starting
+  nginx. A cold-start test (polling every 0.2 s from t = 0) saw only "not
+  listening" and then 200, never 502.
+- The AI's own test setup had flaws twice: a readiness loop that treated a 502
+  as ready, and a port clash with the local Compose stack. It also briefly
+  reported deleting a container named `app` that it hadn't created, then
+  checked Docker's event log and found the container was its own, never
+  started. Nothing of mine was touched.
+
+**Verified locally:**
+- Page, deep links, `/version`, and health with commit
+- A chat turn, the CSP header, and JSON 404s
+- A spoofed `X-Forwarded-For` ignored
+- The API listening on 127.0.0.1 only, and all processes owned by the
+  unprivileged user
+- Killing the API stops the container (exit code 1)
+- The CI smoke steps, `make test`, `make lint`, and the link check
+
+**Next:** I copy the secrets to the web service. PR B (`render.yaml` only)
+switches production. Then a cold-start check on Render.
+
+**Reviewed by hand:** _TODO (me)._

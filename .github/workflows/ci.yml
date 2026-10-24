@@ -150,3 +150,35 @@ jobs:
       - name: Stop the stack
         if: always()
         run: docker compose down -v
+
+  production-image:
+    name: Production image (single service, smoke test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the root Dockerfile (what Render deploys)
+        run: docker build -t stock-assistant .
+      - name: Start it the way Render does (fake agent, no keys)
+        run: |
+          docker run -d --name app -p 8080:8080 \
+            -e AGENT_MODE=fake -e RENDER_GIT_COMMIT="$GITHUB_SHA" stock-assistant
+          # nginx only starts once the API is ready, so a single wait covers both.
+          curl -fsS --retry 60 --retry-all-errors --retry-delay 1 -o /dev/null http://localhost:8080/api/health
+      - name: Smoke test
+        run: |
+          set -x
+          curl -fsS http://localhost:8080/ -o /dev/null
+          test "$(curl -fsS http://localhost:8080/version)" = "$GITHUB_SHA"
+          curl -fsS http://localhost:8080/api/health | jq -e --arg sha "$GITHUB_SHA" '.database == "ok" and .commit == $sha'
+          curl -fsSI http://localhost:8080/ | grep -qi "content-security-policy"
+          id=$(curl -fsS -X POST http://localhost:8080/api/sessions | jq -r .id)
+          curl -fsS -X POST "http://localhost:8080/api/sessions/$id/messages" \
+            -H 'content-type: application/json' -d '{"content":"What is AAPL?"}' \
+            | jq -e '.assistant_message.tool_calls[0].name == "GLOBAL_QUOTE"'
+          # The API must listen on loopback only (0100007F:1F40 = 127.0.0.1:8000).
+          docker exec app sh -c 'awk "NR>1 && \$4==\"0A\" {print \$2}" /proc/net/tcp' | grep -q '^0100007F:1F40$'
+          ! docker exec app sh -c 'awk "NR>1 && \$4==\"0A\" {print \$2}" /proc/net/tcp' | grep -q '^00000000:1F40$'
+      - name: Logs on failure
+        if: failure()
+        run: docker logs app
+
