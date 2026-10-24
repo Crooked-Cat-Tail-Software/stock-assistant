@@ -13,6 +13,7 @@ FROM nginxinc/nginx-unprivileged:1.30-alpine
 # Runtime settings substituted into the nginx config (see nginx/default.conf.template).
 # Defaults suit Docker Compose; the hosting platform overrides them.
 ENV BACKEND_URL=http://backend:8000 \
+    NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1 \
     INTERNAL_API_TOKEN="" \
     TRUSTED_PROXY_CIDR=127.0.0.1/32 \
     REAL_IP_HEADER=X-Forwarded-For \

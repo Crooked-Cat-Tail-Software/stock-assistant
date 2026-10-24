@@ -419,3 +419,40 @@ an issue without a real issue number.
   anchors.
 
 **Reviewed by hand:** _TODO (me)._
+
+### 2026-10-24 — Bug #16: the local stack didn't survive a Docker restart
+
+**How it was found:** after Phase 9, I restarted Docker Desktop so the README's
+Docker quick start could be checked. The AI noticed the auto-restarted
+stack was unhealthy before running anything else.
+
+**Two bugs, both invisible to the existing tests** (CI always starts from a
+fresh `docker compose up`):
+1. `db` had no restart policy. Docker restarted the backend and frontend but
+   not the database, so the backend crash-looped (`failed to resolve host 'db'`).
+   The frontend still reported healthy (it only checks `/`).
+2. With the database back and the backend healthy, the site still returned
+   **502**: nginx resolved `backend` once at startup and kept the old IP after
+   the backend restarted. Any backend restart broke the site until nginx was
+   restarted too.
+
+**Fix:** `restart: unless-stopped` on `db`. nginx now re-resolves the backend
+every 10 s through the container's own resolver (the image's
+`15-local-resolvers.envsh`), so nothing is hardcoded for Compose or Render.
+Before relying on that helper, the AI checked it exists in the image and runs
+before the template step.
+
+**Verified** (each acceptance criterion on #16):
+- Backend forced onto a new IP (a throwaway container took the old one): the
+  site stayed at 200, and nginx was not restarted. This was the exact failure
+  observed before the fix.
+- Postgres stopped inside its container: Docker restarted it (restart count
+  0 → 1), the site recovered on its own, and the data was intact.
+- The image run with Render's settings against the **live** HTTPS backend:
+  health 200, `/api/sessions` 403 without the token (correct). This covers the
+  production path, which the change touched.
+- README quick start from a fresh clone of the branch, under a separate
+  Compose project so the existing stack and data weren't touched: page 200,
+  chat works. This also closes the gap left open in Phase 9.
+
+**Reviewed by hand:** _TODO (me)._
