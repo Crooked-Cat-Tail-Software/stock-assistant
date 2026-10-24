@@ -46,6 +46,11 @@ the backend starts.
   public URL, so without a check a client could skip nginx and call it
   directly. nginx sends `X-Internal-Token`, and the backend returns 403 to any
   `/api/*` request (except health) without it.
+- **Outside data is untrusted.** The agent reads news headlines and summaries
+  written by third parties. The feed is size-capped, parsed with `defusedxml`
+  (no DTDs or entities), and only https links are passed on. The agent is
+  instructed never to follow instructions found in tool results. Its tools are
+  read-only, which limits what a prompt-injection attempt could do.
 - **Rate limit (10 questions per minute per visitor)** caps OpenAI spend. Set
   `AGENT_MODE=fake` on the API service to run at no cost.
 
