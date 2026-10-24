@@ -1,0 +1,31 @@
+name: Spike - yfinance from a cloud runner
+
+# Temporary (issue #18). Runs only on pushes to spike/** branches; never on main.
+on:
+  push:
+    branches: ["spike/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  yfinance:
+    name: yfinance from ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]   # two runner pools, two IP ranges
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - name: Outbound IP (shows this is a data-center address)
+        run: curl -s https://api.ipify.org; echo
+      - name: Run the spike twice, a minute apart
+        run: |
+          uvx --python 3.13 --with yfinance python spikes/yfinance_cloud_test.py > run1.txt 2>&1 || true
+          sleep 60
+          uvx --python 3.13 --with yfinance python spikes/yfinance_cloud_test.py > run2.txt 2>&1 || true
+          echo "--- run 1"; tail -1 run1.txt
+          echo "--- run 2"; tail -1 run2.txt
+          { echo "### ${{ matrix.os }}"; echo '```'; tail -1 run1.txt; tail -1 run2.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
