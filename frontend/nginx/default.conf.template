@@ -35,8 +35,18 @@ server {
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header X-Frame-Options "DENY" always;
 
+    # Re-resolve the backend's address every 10 s. With a fixed proxy_pass,
+    # nginx resolves it once at startup, so a restarted backend container (new
+    # IP) gave 502 until nginx restarted too (issue #16). NGINX_LOCAL_RESOLVERS
+    # comes from this container's /etc/resolv.conf (Docker's 127.0.0.11 in
+    # Compose, the platform's resolver on Render).
+    resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;
+
     location /api/ {
-        proxy_pass ${BACKEND_URL};
+        # A variable makes nginx resolve the name per request (using the cache
+        # above). With no URI part, the original request path is passed as-is.
+        set $api_upstream "${BACKEND_URL}";
+        proxy_pass $api_upstream;
         # Send the backend's own hostname: platforms like Render route by Host,
         # and HTTPS backends need it for SNI.
         proxy_set_header Host $proxy_host;

@@ -23,6 +23,10 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    # Restart with Docker like the other services. depends_on only orders
+    # `docker compose up`, so without this a Docker restart left the backend
+    # crash-looping with no database (issue #16).
+    restart: unless-stopped
 
   backend:
     build: ./backend
