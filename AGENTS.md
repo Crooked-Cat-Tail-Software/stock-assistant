@@ -37,9 +37,10 @@ Live at <https://stock-assistant-web.onrender.com>.
 | `docs/` | process, agent team, testing, deployment, AI workflow log |
 | `.claude/agents/` | Specialist subagents: contract-reviewer, test-engineer, security-reviewer, deploy-verifier |
 | `.github/workflows/` | `ci.yml` (all checks), `verify-deploy.yml` (production check after each deploy) |
-| `ops/` | `scripts/wait-for-commit.sh` (deploy verification), `postgres-init/` (Compose test database) |
+| `ops/` | `single-service/` (start script and nginx config for the production image), `scripts/` (deploy verification, link check), `postgres-init/` (Compose test database) |
 | `security/` | `gitleaks-report.json` (secret scan of the full history) |
-| `docker-compose.yml`, `render.yaml` | Local full stack; production infrastructure (Render Blueprint) |
+| `Dockerfile` (root) | Production image: nginx + API in one container, one Render service |
+| `docker-compose.yml`, `render.yaml` | Local full stack (separate containers); production infrastructure (Render Blueprint) |
 | `Makefile` | `make help` lists the commands |
 
 ## Rules that always apply

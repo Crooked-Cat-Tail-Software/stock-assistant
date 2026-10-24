@@ -50,7 +50,7 @@ The full specification, with acceptance criteria, is in
 flowchart LR
     user([Browser])
 
-    subgraph render["Render (production) · Docker Compose (local)"]
+    subgraph render["One container on Render (production) · separate containers in Docker Compose (local)"]
         direction LR
         web["<b>frontend</b><br/>nginx + React build<br/>security headers, client IP"]
         api["<b>backend</b><br/>FastAPI<br/>rate limit, sessions, watchlist"]
@@ -78,7 +78,7 @@ flowchart LR
 | **AI agent** | OpenAI Agents SDK, [yfinance](https://github.com/ranaroussi/yfinance) tools, [Alpha Vantage MCP](https://github.com/alphavantage/alpha_vantage_mcp) | Answers questions by calling market-data tools: Yahoo for quotes, price history, and news (cached, with timeouts; news parsed safely with `defusedxml`), Alpha Vantage for movers, fundamentals, and fallback. Tool output is treated as data, never as instructions. Adapted from the Alpha Vantage agent example, with the filesystem server removed and tracing off. A `FakeAgent` replaces it in tests and keyless demos. |
 | **Database** | Postgres 17 (Neon in production), SQLite for quick dev | Conversations, messages, and watchlist. The schema is managed by Alembic migrations. |
 | **Containers** | Docker, Docker Compose | One command runs the full stack locally. Same images as production. Non-root, with health checks. |
-| **CI** | GitHub Actions | Contract check, backend (unit + integration on Postgres), frontend, end-to-end (Playwright), and Docker smoke test on every push and PR. |
+| **CI** | GitHub Actions | Contract check, backend (unit + integration on Postgres), frontend, end-to-end (Playwright), Docker Compose smoke test, and production-image smoke test on every push and PR. |
 | **CD** | Render (`checksPass`) + GitHub Actions | Render deploys `main` only after all CI checks pass, then [`verify-deploy.yml`](.github/workflows/verify-deploy.yml) confirms the live site runs that commit. |
 
 More detail: [docs/deployment.md](docs/deployment.md) (CD flow, security
@@ -167,19 +167,23 @@ No test calls OpenAI, Alpha Vantage, or Yahoo. Coverage is about 97% (backend) a
 
 ```mermaid
 flowchart LR
-    pr["Push / PR"] --> ci{"CI: 5 checks<br/>contract · backend+Postgres ·<br/>frontend · e2e · Docker"}
+    pr["Push / PR"] --> ci{"CI: 6 checks<br/>contract · backend+Postgres ·<br/>frontend · e2e · Compose · prod image"}
     ci -- "any fail" --> stop["Not deployed"]
-    ci -- "all pass (main)" --> render["Render deploys<br/>frontend + backend"]
-    render --> verify["verify-deploy.yml<br/>both run the commit?<br/>health, token, headers"]
+    ci -- "all pass (main)" --> render["Render deploys<br/>one container (nginx + API)"]
+    render --> verify["verify-deploy.yml<br/>runs the commit?<br/>health, sessions, headers"]
 ```
 
-- **Production:** <https://stock-assistant-web.onrender.com>, two Docker web
-  services from [`render.yaml`](render.yaml), with the database on Neon.
+- **Production:** <https://stock-assistant-web.onrender.com>, **one** Docker web
+  service from [`render.yaml`](render.yaml) and the root [`Dockerfile`](Dockerfile)
+  (nginx and the API in one container), with the database on Neon. It started
+  as two services, but on Render's free plan a sleeping API couldn't be woken by
+  the web service, so they were merged
+  ([why](docs/deployment.md#why-one-service-issue-24)).
 - **Deploy gate:** Render's `autoDeployTrigger: checksPass` deploys a commit
   only when every CI check on it passed. A failing commit never reaches users.
 - **Rollback:** revert the bad commit on `main`. The revert goes through the
   same CI gate and deploys automatically. In an emergency, Render's dashboard
-  can redeploy an earlier successful deploy of each service directly.
+  can redeploy an earlier successful deploy directly.
 - **Known gap:** changes to `render.yaml` are applied by Render's Blueprint
   sync without waiting for CI, so they're committed on their own
   ([details](docs/deployment.md#known-gap-renderyaml-changes-skip-the-ci-gate)).

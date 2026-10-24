@@ -55,14 +55,14 @@ The lead agent fixes the findings, and the human settles disagreements.
   issue it finishes.
 - **CI must pass** (`.github/workflows/ci.yml`): contract, backend (unit +
   integration on Postgres), frontend (lint, typecheck, unit, build), end-to-end,
-  and Docker smoke test.
+  Docker Compose smoke test, and production-image smoke test.
 - **The human reviews and merges.** Agents don't merge to `main`.
 
 ## 6. Deploy and verify
 
 - Merging to `main` re-runs CI. **Render deploys only if every check passes**
   (`autoDeployTrigger: checksPass`).
-- `verify-deploy.yml` then confirms both services run the merged commit and
+- `verify-deploy.yml` then confirms the site runs the merged commit and
   smoke-tests production.
 - For anything user-visible, the `deploy-verifier` subagent checks the live
   site.

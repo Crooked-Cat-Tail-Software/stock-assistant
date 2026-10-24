@@ -35,8 +35,10 @@ jobs:
       # Render deploys the two services independently; wait until both run this commit.
       - name: Frontend runs this commit
         run: ops/scripts/wait-for-commit.sh "$FRONTEND_URL/version" "$SHA" 300
+      # Two-service setup: the API has its own URL (BACKEND_URL). Single-service
+      # setup (issue #24): BACKEND_URL is unset and the API is behind the site.
       - name: Backend runs this commit
-        run: ops/scripts/wait-for-commit.sh "$BACKEND_URL/api/health" "$SHA" 900
+        run: ops/scripts/wait-for-commit.sh "${BACKEND_URL:-$FRONTEND_URL}/api/health" "$SHA" 900
 
       - name: Smoke test production
         run: |
@@ -44,10 +46,12 @@ jobs:
           curl -fsS "$FRONTEND_URL/api/health" | jq -e '.status == "ok" and .database == "ok"'
           curl -fsS "$FRONTEND_URL/api/sessions" -o /dev/null
           curl -fsSI "$FRONTEND_URL/" | grep -qi "content-security-policy"
-          # ...and the backend refuses requests that bypass it.
-          code=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/api/sessions")
-          if [ "$code" != "403" ]; then
-            echo "::error::Backend answered $code to a direct request; expected 403"
-            exit 1
+          # ...and, in the two-service setup, the backend refuses requests that bypass it.
+          if [ -n "$BACKEND_URL" ]; then
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/api/sessions")
+            if [ "$code" != "403" ]; then
+              echo "::error::Backend answered $code to a direct request; expected 403"
+              exit 1
+            fi
           fi
           echo "✓ Production is healthy and running $SHA"
