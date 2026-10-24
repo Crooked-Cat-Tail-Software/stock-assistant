@@ -50,5 +50,5 @@ print(
     f"ok={len(results) - len(failed)}/{len(results)} "
     f"burst_ok={sum(r['ok'] for r in results if r['test'].startswith('burst'))}/20 "
     f"avg_s={sum(r['seconds'] for r in results) / len(results):.2f} "
-    f"errors={errors}"
+    f"errors={errors} failed={[r['test'] for r in failed]}"
 )
