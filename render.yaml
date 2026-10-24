@@ -6,18 +6,30 @@
 #
 # Values marked `sync: false` are secrets: Render asks for them when the
 # Blueprint is first created and they are never stored in this file.
+#
+# ONE service: nginx and the API run in one container (root Dockerfile). With
+# two free services, a sleeping API couldn't be woken by the web service and
+# the site broke after 15 idle minutes (issue #24). The former
+# stock-assistant-api service is no longer part of this Blueprint.
 
 services:
   - type: web
-    name: stock-assistant-api
+    name: stock-assistant-web
     runtime: docker
-    dockerContext: ./backend
-    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
     plan: free
     region: oregon            # keep the Neon database in the same area (AWS us-west-2)
-    healthCheckPath: /api/health
-    autoDeployTrigger: checksPass   # deploy only after all CI checks pass
+    healthCheckPath: /api/health   # through nginx to the API: checks both
+    autoDeployTrigger: checksPass  # deploy only after all CI checks pass
     envVars:
+      - key: PORT             # nginx listens on 8080
+        value: "8080"
+      # nginx → API inside the container. Must be set explicitly: this service
+      # previously pointed at the separate API's public URL, and a service
+      # setting overrides the image default.
+      - key: BACKEND_URL
+        value: http://127.0.0.1:8000
       - key: DATABASE_URL     # Neon connection string (free tier, doesn't expire)
         sync: false
       - key: AGENT_MODE       # "openai" for real answers, "fake" to run without cost
@@ -30,28 +42,8 @@ services:
         value: gpt-4.1-mini
       - key: RATE_LIMIT_PER_MINUTE
         value: "10"
-      - key: INTERNAL_API_TOKEN  # same random value as on stock-assistant-web
-        sync: false
-
-  - type: web
-    name: stock-assistant-web
-    runtime: docker
-    dockerContext: ./frontend
-    dockerfilePath: ./frontend/Dockerfile
-    plan: free
-    region: oregon
-    healthCheckPath: /
-    autoDeployTrigger: checksPass
-    envVars:
-      - key: PORT             # nginx listens on 8080
-        value: "8080"
-      # Free services can't use Render's private network, so nginx reaches the
-      # API at its public URL. Render added "-duq5" because the plain name was
-      # taken by another account. This MUST be our API's URL: nginx sends the
-      # internal token to whatever host is configured here.
-      - key: BACKEND_URL
-        value: https://stock-assistant-api-duq5.onrender.com
-      - key: INTERNAL_API_TOKEN  # same random value as on stock-assistant-api
+      # Optional now: nginx and the API read the same value in one container.
+      - key: INTERNAL_API_TOKEN
         sync: false
       # Client IP for the rate limit: Render delivers requests via Cloudflare
       # and a local proxy (127.0.0.1). Trust only that proxy, and only
