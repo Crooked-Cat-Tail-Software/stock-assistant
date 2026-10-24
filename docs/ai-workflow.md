@@ -351,3 +351,42 @@ Blueprint auto-sync applies config changes immediately. Documented in
 normal commits stay gated.
 
 **Reviewed by hand:** _TODO (me)._
+
+### 2026-10-23 — Course criteria changed; re-planned to the new rubric
+
+**What happened:** before starting the planned Phase 8 (agent extension pack
+and security artifacts), the AI re-read the course requirements to match their
+exact wording. It found they had been **revised on 2026-10-16**: 12 criteria,
+24 points, 10 to pass. The API contract, extension pack, and security criteria
+were gone. Product specification (with a public task tracker), agent team,
+context management, observability, alerting, and an on-call agent were new.
+It stopped, re-scored the project against the new criteria (about 14–17/24),
+and presented options with their cost.
+
+**My decision:** do only the quick wins (single test command, agent team,
+modular context docs, public task tracker). I skipped observability, the
+on-call agent, and the dev/prod split for now.
+
+**AI did:**
+- Created the public tracker (GitHub Issues #1–#13) with labels. Issues for
+  this phase's work (#1–#4) were created **before** the work, with acceptance
+  criteria. The agent posted its plan on each issue before starting and
+  referenced them in commits. Earlier work was recorded as closed issues
+  (#5–#13) labeled `recorded-after-the-fact`, each linking the commits and
+  tests that deliver it.
+- `make test` (verified: a deliberately broken test gives exit 2).
+- `docs/agent-team.md` and four subagents in `.claude/agents/`, with tool
+  lists matching each role (reviewers are read-only).
+- `docs/process.md`, and AGENTS.md rewritten as an entry point. It was also
+  inaccurate: it still listed `mcp-server/` and docs that were never built.
+- `ops/scripts/check-links.py`, in `make lint` and CI. It was shown to catch a
+  missing file and a bad `#anchor`, and to accept a real anchor with tricky
+  characters.
+
+**Slip caught:** the first batch of issue-creation commands passed two
+`--label` flags as one argument (zsh doesn't split variables), so nothing was
+created, yet the script printed "closed". The AI checked the tracker, confirmed
+nothing half-created existed, and redid it with a guard that refuses to close
+an issue without a real issue number.
+
+**Reviewed by hand:** _TODO (me)._

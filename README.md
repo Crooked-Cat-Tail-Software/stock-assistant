@@ -70,6 +70,17 @@ and add your OpenAI and Alpha Vantage keys.
 
 ## Testing
 
+**One command runs every unit and integration test** (backend and frontend). It
+needs no API keys, Docker, or running services:
+
+```bash
+make install   # first time only
+make test      # backend unit + integration, frontend unit
+make test-all  # the above + Playwright end-to-end (run `cd frontend && npx playwright install chromium` once)
+```
+
+Or run the suites individually:
+
 ```bash
 cd backend
 uv run pytest tests/unit          # business logic, no HTTP (in-memory SQLite)
