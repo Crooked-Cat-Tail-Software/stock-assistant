@@ -1,7 +1,7 @@
 # Testing strategy
 
 Four layers, from fastest and narrowest to slowest and broadest. Each catches
-problems the others can't. No layer ever calls OpenAI or Alpha Vantage: a
+problems the others can't. No layer ever calls OpenAI, Alpha Vantage, or Yahoo: a
 `FakeAgent` (backend) or an in-memory fake API (frontend unit tests) stands in,
 so every test runs without keys or cost, and CI has no keys at all.
 

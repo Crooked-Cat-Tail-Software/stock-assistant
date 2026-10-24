@@ -16,7 +16,9 @@ Check:
 2. **Logs:** nothing logs full Alpha Vantage URLs (they contain `apikey=`),
    request bodies, or exception messages that might contain URLs. `httpx`
    logging must stay at WARNING.
-3. **Agent tools:** the runtime agent connects **only** to the Alpha Vantage MCP
+3. **Agent tools:** the runtime agent has only the read-only yfinance tools
+   (`app/agent/market_tools.py`: validated symbols, timeouts, errors as results)
+   and the Alpha Vantage MCP
    server (no filesystem, shell, or other local-access servers). Agents SDK
    tracing stays off by default.
 4. **Guardrails stay intact:** the 2,000-character limit, the per-client rate

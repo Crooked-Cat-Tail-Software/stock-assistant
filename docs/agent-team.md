@@ -17,7 +17,7 @@ between them. The workflow steps are in [process.md](process.md).
 | **CI gatekeeper** | GitHub Actions [`ci.yml`](../.github/workflows/ci.yml) | Running every check on each push and PR | — | — |
 | **Deployer** | Render (`autoDeployTrigger: checksPass`) | Deploying `main` only after all CI checks pass | — | — |
 | **Production check** | GitHub Actions [`verify-deploy.yml`](../.github/workflows/verify-deploy.yml) | Confirming both services run the deployed commit and smoke-testing the live site | — | — |
-| **Runtime agent** (part of the product) | OpenAI Agents SDK in `backend/app/agent/` | Answering users' market questions with Alpha Vantage MCP tools | Call Alpha Vantage tools only | Use filesystem, shell, or other local-access tools |
+| **Runtime agent** (part of the product) | OpenAI Agents SDK in `backend/app/agent/` | Answering users' market questions with yfinance tools (quotes, history) and Alpha Vantage MCP tools | Call Alpha Vantage tools only | Use filesystem, shell, or other local-access tools |
 
 The subagents are real Claude Code subagent definitions. Their tool lists
 enforce the "may / must not" columns: reviewers have no edit tools.

@@ -7,7 +7,8 @@ hand**. Keep it short; put details in the linked docs.
 ## What this project is
 
 **Stock Research Assistant:** a web app where an AI agent answers market
-questions using live Alpha Vantage data over MCP, with saved conversations and
+questions using live market data (yfinance first, Alpha Vantage over MCP for
+news and as fallback), with saved conversations and
 a watchlist. React frontend, FastAPI backend, Postgres, deployed on Render.
 Live at <https://stock-assistant-web.onrender.com>.
 
@@ -58,8 +59,10 @@ Live at <https://stock-assistant-web.onrender.com>.
    variables only. Never log Alpha Vantage URLs (the key is in the query
    string). In `render.yaml` secrets are `sync: false`. In workflows they're
    `secrets.*`.
-7. **The runtime agent connects only to the Alpha Vantage MCP server.** No
-   filesystem, shell, or other local-access tools.
+7. **The runtime agent has read-only market-data tools only:** the yfinance
+   tools in `backend/app/agent/market_tools.py` and the Alpha Vantage MCP
+   server. No filesystem, shell, or other local-access tools. New tools must
+   validate inputs, time out, and return errors as results (see `market_tools.py`).
 8. **Frontend:** no `fetch` outside `src/api/client.ts` (ESLint enforces it).
    Components use `useApi()`. Never edit `src/api/schema.d.ts` by hand.
 9. **Commit `render.yaml` changes on their own.** Render applies them without
