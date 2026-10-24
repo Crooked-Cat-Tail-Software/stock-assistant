@@ -390,3 +390,32 @@ nothing half-created existed, and redid it with a guard that refuses to close
 an issue without a real issue number.
 
 **Reviewed by hand:** _TODO (me)._
+
+### 2026-10-24 — Phase 9: README and architecture (issue #4)
+
+**Asked:** Final documentation pass.
+
+**AI did:**
+- Posted its plan on #4, then rewrote the README. The problem, features, and
+  expected behavior come first, then the live URL, a CI badge, and a
+  screenshot of the **live** site. The screenshot was captured with Playwright
+  by opening an existing conversation, so no OpenAI cost and no data changes.
+- Two Mermaid diagrams (system architecture, CI/CD gate), a component table,
+  and a "How it was built" section.
+- A course-criteria table that is **honest about gaps**: observability is
+  partial (logs only), and alerting and the on-call agent are not implemented.
+- Replaced a Render rollback instruction ("Manual Deploy → Deploy a previous
+  commit") that the AI could not confirm matched Render's UI with a
+  revert-based rollback that goes through the CI gate.
+
+**Verified:**
+- In a **fresh clone from GitHub**: `make install` and `make test` (96 tests
+  pass), and the "without Docker" backend steps (migration creates
+  `backend/dev.db`, health `ok`, `/docs` 200).
+- `docker compose up --build` from a clean checkout is covered by CI's Docker
+  job, which passed on merge commit `d955d13`. Docker wasn't running locally
+  at the time.
+- `check-links.py`: 0 broken links, including the README's new `#section`
+  anchors.
+
+**Reviewed by hand:** _TODO (me)._
