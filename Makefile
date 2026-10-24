@@ -29,7 +29,8 @@ test-e2e: ## End-to-end tests in a real browser (starts its own servers)
 test-all: test test-e2e ## Everything, including end-to-end
 	@echo "✓ All tests passed, including end-to-end"
 
-lint: ## Linters and type checks
+lint: ## Linters, type checks, and doc link check
+	python3 ops/scripts/check-links.py
 	cd backend && uv run ruff check . && uv run ruff format --check .
 	cd frontend && npm run lint && npm run typecheck
 
