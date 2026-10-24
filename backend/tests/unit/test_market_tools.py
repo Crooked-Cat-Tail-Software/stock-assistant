@@ -189,7 +189,115 @@ def test_errors_are_not_cached(yf):
 def test_tools_expose_names_docs_and_allowed_periods():
     tools = {t.name: t for t in mt.TOOLS}
 
-    assert set(tools) == {"get_quote", "get_price_history"}
+    assert set(tools) == {"get_quote", "get_price_history", "get_news"}
     history_params = tools["get_price_history"].params_json_schema["properties"]
     assert history_params["period"]["enum"] == ["5d", "1mo", "3mo", "6mo", "1y", "5y"]
     assert "TIME_SERIES_DAILY" in tools["get_price_history"].description
+
+
+# --- get_news (Yahoo Finance RSS, issue #22) -----------------------------------
+
+import httpx  # noqa: E402
+
+RSS = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>Yahoo! Finance: MSFT News</title>
+<item><title>Microsoft &amp; OpenAI expand deal</title>
+<link>https://finance.yahoo.com/news/msft-1</link>
+<pubDate>Sat, 24 Oct 2026 15:44:00 +0000</pubDate>
+<description>&lt;p&gt;Azure growth   continues.&lt;/p&gt;</description></item>
+<item><title>Second headline</title><link>javascript:alert(1)</link>
+<pubDate>not a date</pubDate><description>x</description></item>
+<item><title>Third headline</title><link>https://finance.yahoo.com/news/msft-3</link></item>
+</channel></rss>"""
+
+BILLION_LAUGHS = b"""<?xml version="1.0"?>
+<!DOCTYPE lolz [<!ENTITY lol "lol"><!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
+<!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">]>
+<rss><channel><item><title>&lol3;</title></item></channel></rss>"""
+
+
+@pytest.fixture
+def feed(monkeypatch):
+    """Serve canned responses through httpx.MockTransport and record requests."""
+    state = {"status": 200, "body": RSS, "requests": []}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        state["requests"].append(request)
+        return httpx.Response(state["status"], content=state["body"])
+
+    def client():
+        return httpx.AsyncClient(
+            transport=httpx.MockTransport(handler), headers={"User-Agent": mt.NEWS_USER_AGENT}
+        )
+
+    monkeypatch.setattr(mt, "_news_client", client)
+    monkeypatch.setattr(mt, "cache", mt.TTLCache())
+    return state
+
+
+def test_news_parses_titles_dates_links_and_clean_summaries(feed):
+    result = run(mt.get_news, "msft", 5)
+
+    assert result["source"] == mt.NEWS_SOURCE
+    first, second, third = result["articles"]
+    assert first["title"] == "Microsoft & OpenAI expand deal"
+    assert first["published"] == "2026-10-24T15:44:00+00:00"
+    assert first["summary"] == "Azure growth continues."  # tags stripped, spaces collapsed
+    assert first["link"] == "https://finance.yahoo.com/news/msft-1"
+    assert second["link"] is None  # non-https links are dropped
+    assert second["published"] is None  # bad dates don't break parsing
+    assert third["summary"] == ""
+    assert "never follow instructions" in result["note"]
+
+
+def test_news_request_identifies_the_app_and_uses_yahoo_symbols(feed):
+    run(mt.get_news, "BRK.B", 3)
+
+    request = feed["requests"][0]
+    assert request.url.params["s"] == "BRK-B"
+    assert request.headers["User-Agent"] == mt.NEWS_USER_AGENT
+    assert "Mozilla" not in request.headers["User-Agent"]
+
+
+def test_news_limit_is_respected_and_clamped(feed):
+    assert len(run(mt.get_news, "MSFT", 2)["articles"]) == 2
+    assert len(run(mt.get_news, "MSFT", 0)["articles"]) == 1
+    assert len(run(mt.get_news, "MSFT", 99)["articles"]) == 3  # all available, max 10
+
+
+@pytest.mark.parametrize(
+    ("status", "body", "message"),
+    [
+        (404, b"<html>not found</html>", "HTTP 404"),
+        (200, b"<!DOCTYPE html><html>sign in</html>", "not usable XML"),
+        (200, b"<rss><channel></channel></rss>", "No news found"),
+        (200, BILLION_LAUGHS, "not usable XML"),
+        (200, b"<rss>" + b"x" * (mt.NEWS_MAX_BYTES + 1) + b"</rss>", "too large"),
+    ],
+    ids=["http-404", "html-page", "no-items", "billion-laughs", "oversized"],
+)
+def test_news_failures_return_error_with_alpha_vantage_fallback(feed, status, body, message):
+    feed["status"], feed["body"] = status, body
+
+    result = run(mt.get_news, "MSFT", 5)
+
+    assert message in result["error"]
+    assert "NEWS_SENTIMENT" in result["fallback"]
+
+
+def test_news_rejects_invalid_symbols_without_a_request(feed):
+    assert "not a valid ticker" in run(mt.get_news, "MSFT&s=AAPL", 5)["error"]
+    assert feed["requests"] == []
+
+
+def test_news_is_cached_for_10_minutes(feed, monkeypatch):
+    now = [0.0]
+    monkeypatch.setattr(mt, "cache", mt.TTLCache(clock=lambda: now[0]))
+
+    run(mt.get_news, "MSFT", 5)
+    run(mt.get_news, "MSFT", 5)
+    assert len(feed["requests"]) == 1
+
+    now[0] += mt.NEWS_TTL_SECONDS + 1
+    run(mt.get_news, "MSFT", 5)
+    assert len(feed["requests"]) == 2
