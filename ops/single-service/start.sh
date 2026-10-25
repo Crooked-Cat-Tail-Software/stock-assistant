@@ -23,16 +23,24 @@ api_pid=$!
 # Start nginx only once the API answers. The platform holds a waking visitor's
 # request until the port opens; opening it early would hand that visitor a 502
 # while Python is still importing (the very symptom of issue #24).
-python - <<'PY'
-import sys, time, urllib.request
-deadline = time.monotonic() + 90
+# Stop at once if the API process dies (e.g. a missing key), so the real error
+# above is the last thing in the log (issue #27). The free plan's CPU is tiny,
+# so allow a slow cold start.
+API_PID="$api_pid" python - <<'PY'
+import os, sys, time, urllib.request
+pid = int(os.environ["API_PID"])
+deadline = time.monotonic() + 300
 while time.monotonic() < deadline:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        sys.exit("start-stock-assistant: the API exited during startup (see the error above)")
     try:
         urllib.request.urlopen("http://127.0.0.1:8000/api/health", timeout=2)
         sys.exit(0)
     except Exception:
         time.sleep(0.5)
-sys.exit("start-stock-assistant: API did not become ready within 90 s")
+sys.exit("start-stock-assistant: API did not become ready within 300 s")
 PY
 
 nginx -c /etc/stock-assistant/nginx.conf -g 'daemon off;' &
