@@ -601,3 +601,28 @@ now" checks had been waking it by accident.
 switches production. Then a cold-start check on Render.
 
 **Reviewed by hand:** _TODO (me)._
+
+### 2026-10-25 — #24 switch to one service: deployed, verified cold; #27 start-script fix
+
+**What happened:** merging the `render.yaml`-only PR (#26) started the switch,
+but both deploys failed and Render kept the old two-service version serving.
+The AI first suspected its own 90 s readiness timeout. It measured startup at
+0.1 CPU locally (migrations ~56 s; the app with the real agent stack ~171 s),
+but asked for the actual Render log before changing anything. **The log showed
+the real cause:** `OPENAI_API_KEY` hadn't been saved on the web service. I
+saved it, and the deploy succeeded.
+
+**Verified live:** both `/version` and `/api/health` report `d0a0afd`. After
+17 idle minutes, requests **only through the website** woke the site: first
+request 200 after 51 s, then about 0.1 s. Before the fix, 12/12 had failed.
+
+**#27 (found in the failure):** the start script kept waiting 90 s after the
+API had crashed and then blamed a timeout, which hid the real error. It now
+stops immediately if the API exits (verified: missing key → container exits in
+3 s, with the `RuntimeError` as the last lines), and allows 300 s for slow cold
+starts.
+
+**Lesson:** asking for the platform's log before acting saved a wrong fix. The
+measured slowness was real but wasn't the cause.
+
+**Reviewed by hand:** _TODO (me)._
