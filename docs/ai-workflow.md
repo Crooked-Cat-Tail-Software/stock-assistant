@@ -626,3 +626,36 @@ starts.
 measured slowness was real but wasn't the cause.
 
 **Reviewed by hand:** _TODO (me)._
+
+### 2026-10-25 — Cleanup after #24: wrong service deleted, recreated, old API removed
+
+**What happened:** when removing the now-unused `stock-assistant-api` service
+in Render, I deleted **`stock-assistant-web`**, the live site, by mistake.
+The two names differ only in their last word.
+
+**Recovery:**
+- The AI first checked what was left: the web address answered `no-server`,
+  while the old API service was still running and still held copies of the
+  secrets. It told me **not** to delete the API until the site was back,
+  because those values were needed to recreate it.
+- I recreated `stock-assistant-web` with the settings the AI listed (all
+  non-secret values are in `render.yaml`; the secrets were copied in the
+  Render dashboard, never through the chat).
+- Render's deploy report on GitHub showed the new service got the **same
+  address back**, so no repo variable or doc needed changing. Verified:
+  `/version` and `/api/health` on the latest `main` (`1163250`), database
+  `ok`, **all 8 conversations and the watchlist intact** (they live in Neon,
+  not in the service), CSP present, and `verify-deploy` passed.
+- Only then did I delete `stock-assistant-api`, after confirming its address
+  (`…-duq5.onrender.com`). Afterwards the old address returns `no-server` and
+  the live site is unaffected.
+
+**Takeaways:**
+- Keeping data outside the service (Neon) and settings in code
+  (`render.yaml`) made the mistake cheap: about 15 minutes, no data loss.
+- Near-identical service names invite this kind of slip. Production is now a
+  single service, so that risk is gone.
+- One setting to check after a manual recreate: **Auto-Deploy** must be
+  "After CI checks pass" (a hand-created service may default to "On Commit").
+
+**Reviewed by hand:** _TODO (me)._
