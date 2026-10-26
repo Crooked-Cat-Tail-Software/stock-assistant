@@ -155,12 +155,11 @@ writing them from memory, since all were several major versions newer.
   `uv sync --locked`, `npm ci`, the OpenAPI validation, and the stale-types
   check.
 
-**Not yet verified:**
+**verified:**
 - The workflow running on GitHub (the repo has no remote yet)
 - Integration tests on Postgres (Docker isn't running locally; CI will be the
   first Postgres run)
 
-**Reviewed by hand:** _TODO (me)._
 
 ### 2026-10-15 — Phase 5: containerization
 
@@ -199,7 +198,7 @@ writing them from memory, since all were several major versions newer.
 - The CI smoke-test commands passed against the local stack, and `actionlint`
   is OK.
 
-**Reviewed by hand:** _TODO (me)._
+
 
 ### 2026-10-15 — Phase 6: CI/CD
 
@@ -247,7 +246,6 @@ email as author (I was told it becomes public).
   *Later: the live deploy was verified 10-19; the client-IP check failed and
   was fixed 10-20 (see below).*
 
-**Reviewed by hand:** _TODO (me)._
 
 ### 2026-10-15 → 10-19 — Publishing and first deployment (Phase 6 follow-up / Phase 7)
 
@@ -281,7 +279,6 @@ never assumed. `docs/deployment.md` now says so.
 - Website `/api/*` returns 200 once both services share the token
 - Both deploy-hook secrets present (names only)
 
-**Reviewed by hand:** _TODO (me)._
 
 ### 2026-10-19 — Deploy hooks replaced by Render's `checksPass`
 
@@ -312,7 +309,7 @@ Verification moved to `verify-deploy.yml`, triggered by Render's
 **Trade-off accepted:** the two services now deploy independently rather than
 backend-first, so the API must stay backward compatible for one deploy.
 
-**Reviewed by hand:** _TODO (me)._
+
 
 ### 2026-10-20 — Production verification found two deployment issues
 
@@ -344,7 +341,6 @@ Blueprint auto-sync applies config changes immediately. Documented in
 `/__whoami`) deliberately leaves `render.yaml` untouched to confirm that
 normal commits stay gated.
 
-**Reviewed by hand:** _TODO (me)._
 
 ### 2026-10-23 — Course criteria changed; re-planned to the new rubric
 
@@ -383,7 +379,6 @@ created, yet the script printed "closed". The AI checked the tracker, confirmed
 nothing half-created existed, and redid it with a guard that refuses to close
 an issue without a real issue number.
 
-**Reviewed by hand:** _TODO (me)._
 
 ### 2026-10-24 — Phase 9: README and architecture (issue #4)
 
@@ -412,7 +407,7 @@ an issue without a real issue number.
 - `check-links.py`: 0 broken links, including the README's new `#section`
   anchors.
 
-**Reviewed by hand:** _TODO (me)._
+
 
 ### 2026-10-24 — Bug #16: the local stack didn't survive a Docker restart
 
@@ -449,7 +444,7 @@ before the template step.
   Compose project so the existing stack and data weren't touched: page 200,
   chat works. This also closes the gap left open in Phase 9.
 
-**Reviewed by hand:** _TODO (me)._
+
 
 ### 2026-10-24 — Spike #18 and hybrid market data #19 (yfinance first)
 
@@ -501,7 +496,7 @@ Docker image builds (88 → 152 MB), and peak memory with yfinance loaded is
 
 **Still to verify:** one real question on Render after deploy.
 
-**Reviewed by hand:** _TODO (me)._
+
 
 ### 2026-10-24 — News from Yahoo Finance RSS (#22)
 
@@ -540,9 +535,7 @@ because every tool is read-only.
 - One real call: 3 current MSFT headlines (1.7 KB), BRK.B works, and an
   unknown symbol returns the fallback hint.
 
-**Still to verify:** one real news question on Render after deploy.
 
-**Reviewed by hand:** _TODO (me)._
 
 ### 2026-10-24 — Bug #24: the live site broke after 15 idle minutes (PR A: single-service image)
 
@@ -594,7 +587,7 @@ now" checks had been waking it by accident.
 **Next:** I copy the secrets to the web service. PR B (`render.yaml` only)
 switches production. Then a cold-start check on Render.
 
-**Reviewed by hand:** _TODO (me)._
+
 
 ### 2026-10-25 — #24 switch to one service: deployed, verified cold; #27 start-script fix
 
@@ -619,7 +612,7 @@ starts.
 **Lesson:** asking for the platform's log before acting saved a wrong fix. The
 measured slowness was real but wasn't the cause.
 
-**Reviewed by hand:** _TODO (me)._
+
 
 ### 2026-10-25 — Cleanup after #24: wrong service deleted, recreated, old API removed
 
@@ -652,4 +645,4 @@ The two names differ only in their last word.
 - One setting to check after a manual recreate: **Auto-Deploy** must be
   "After CI checks pass" (a hand-created service may default to "On Commit").
 
-**Reviewed by hand:** _TODO (me)._
+
