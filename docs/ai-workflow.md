@@ -37,6 +37,9 @@ deployment, and a new repo rather than reusing the old one.
   tickers were "uppercase", while the contract accepts lowercase and
   uppercases it)
 
+**Reviewed by hand:** _TODO (me): read through the spec and contract and note
+any changes here._
+
 ### 2026-10-15 — Phase 2: backend
 
 **Asked:** Build the FastAPI backend following `openapi.yaml`.
@@ -72,10 +75,12 @@ deployment, and a new repo rather than reusing the old one.
 - Smoke test: ran `alembic upgrade head` and uvicorn, then used curl on health,
   sessions, messages, watchlist, and `/docs`.
 
-**Verified:**
+**Not yet verified:**
 - Integration tests against Postgres (Docker was not running; covered in
   Phase 5 and CI)
-- The real `OpenAIAgent` against live OpenAI and Alpha Vantage 
+- The real `OpenAIAgent` against live OpenAI and Alpha Vantage (needs my keys)
+
+**Reviewed by hand:** _TODO (me)._
 
 ### 2026-10-15 — Phase 3: frontend
 
@@ -119,6 +124,8 @@ deployment, and a new repo rather than reusing the old one.
   first conversation. At 375 px there's no horizontal scroll, and the console
   shows no errors.
 
+**Reviewed by hand:** _TODO (me)._
+
 ### 2026-10-15 — Phase 4: testing and CI
 
 **Asked:** Complete the testing layer.
@@ -155,6 +162,13 @@ writing them from memory, since all were several major versions newer.
 - `actionlint` reports the workflow as valid. CI's commands ran locally:
   `uv sync --locked`, `npm ci`, the OpenAPI validation, and the stale-types
   check.
+
+**Not yet verified:**
+- The workflow running on GitHub (the repo has no remote yet)
+- Integration tests on Postgres (Docker isn't running locally; CI will be the
+  first Postgres run)
+
+**Reviewed by hand:** _TODO (me)._
 
 ### 2026-10-15 — Phase 5: containerization
 
@@ -193,6 +207,7 @@ writing them from memory, since all were several major versions newer.
 - The CI smoke-test commands passed against the local stack, and `actionlint`
   is OK.
 
+**Reviewed by hand:** _TODO (me)._
 
 ### 2026-10-15 — Phase 6: CI/CD
 
@@ -236,7 +251,9 @@ email as author (I was told it becomes public).
 - The `wait-for-commit.sh` script both succeeds and times out correctly.
 
 **Not yet verified:**
-- Render's actual client-IP header behavior, and the live deploy (Phase 7)
+- Render's actual client-IP header behavior, and the live deploy (Phase 7).
+  *Later: the live deploy was verified 10-19; the client-IP check failed and
+  was fixed 10-20 (see below).*
 
 **Reviewed by hand:** _TODO (me)._
 
@@ -610,3 +627,37 @@ starts.
 **Lesson:** asking for the platform's log before acting saved a wrong fix. The
 measured slowness was real but wasn't the cause.
 
+**Reviewed by hand:** _TODO (me)._
+
+### 2026-10-25 — Cleanup after #24: wrong service deleted, recreated, old API removed
+
+**What happened:** when removing the now-unused `stock-assistant-api` service
+in Render, I deleted **`stock-assistant-web`**, the live site, by mistake.
+The two names differ only in their last word.
+
+**Recovery:**
+- The AI first checked what was left: the web address answered `no-server`,
+  while the old API service was still running and still held copies of the
+  secrets. It told me **not** to delete the API until the site was back,
+  because those values were needed to recreate it.
+- I recreated `stock-assistant-web` with the settings the AI listed (all
+  non-secret values are in `render.yaml`; the secrets were copied in the
+  Render dashboard, never through the chat).
+- Render's deploy report on GitHub showed the new service got the **same
+  address back**, so no repo variable or doc needed changing. Verified:
+  `/version` and `/api/health` on the latest `main` (`1163250`), database
+  `ok`, **all 8 conversations and the watchlist intact** (they live in Neon,
+  not in the service), CSP present, and `verify-deploy` passed.
+- Only then did I delete `stock-assistant-api`, after confirming its address
+  (`…-duq5.onrender.com`). Afterwards the old address returns `no-server` and
+  the live site is unaffected.
+
+**Takeaways:**
+- Keeping data outside the service (Neon) and settings in code
+  (`render.yaml`) made the mistake cheap: about 15 minutes, no data loss.
+- Near-identical service names invite this kind of slip. Production is now a
+  single service, so that risk is gone.
+- One setting to check after a manual recreate: **Auto-Deploy** must be
+  "After CI checks pass" (a hand-created service may default to "On Commit").
+
+**Reviewed by hand:** _TODO (me)._
