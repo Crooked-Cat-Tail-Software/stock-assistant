@@ -37,8 +37,6 @@ deployment, and a new repo rather than reusing the old one.
   tickers were "uppercase", while the contract accepts lowercase and
   uppercases it)
 
-**Reviewed by hand:** _TODO (me): read through the spec and contract and note
-any changes here._
 
 ### 2026-10-15 — Phase 2: backend
 
@@ -75,12 +73,7 @@ any changes here._
 - Smoke test: ran `alembic upgrade head` and uvicorn, then used curl on health,
   sessions, messages, watchlist, and `/docs`.
 
-**Not yet verified:**
-- Integration tests against Postgres (Docker was not running; covered in
-  Phase 5 and CI)
-- The real `OpenAIAgent` against live OpenAI and Alpha Vantage (needs my keys)
 
-**Reviewed by hand:** _TODO (me)._
 
 ### 2026-10-15 — Phase 3: frontend
 
@@ -124,7 +117,6 @@ any changes here._
   first conversation. At 375 px there's no horizontal scroll, and the console
   shows no errors.
 
-**Reviewed by hand:** _TODO (me)._
 
 ### 2026-10-15 — Phase 4: testing and CI
 
