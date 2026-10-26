@@ -156,13 +156,6 @@ writing them from memory, since all were several major versions newer.
   `uv sync --locked`, `npm ci`, the OpenAPI validation, and the stale-types
   check.
 
-**Not yet verified:**
-- The workflow running on GitHub (the repo has no remote yet)
-- Integration tests on Postgres (Docker isn't running locally; CI will be the
-  first Postgres run)
-
-**Reviewed by hand:** _TODO (me)._
-
 ### 2026-10-15 — Phase 5: containerization
 
 **Asked:** Run the full system with Docker Compose.
