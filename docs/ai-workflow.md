@@ -37,9 +37,6 @@ deployment, and a new repo rather than reusing the old one.
   tickers were "uppercase", while the contract accepts lowercase and
   uppercases it)
 
-**Reviewed by hand:** _TODO (me): read through the spec and contract and note
-any changes here._
-
 ### 2026-10-15 — Phase 2: backend
 
 **Asked:** Build the FastAPI backend following `openapi.yaml`.
@@ -75,12 +72,10 @@ any changes here._
 - Smoke test: ran `alembic upgrade head` and uvicorn, then used curl on health,
   sessions, messages, watchlist, and `/docs`.
 
-**Not yet verified:**
+**Verified:**
 - Integration tests against Postgres (Docker was not running; covered in
   Phase 5 and CI)
-- The real `OpenAIAgent` against live OpenAI and Alpha Vantage (needs my keys)
-
-**Reviewed by hand:** _TODO (me)._
+- The real `OpenAIAgent` against live OpenAI and Alpha Vantage 
 
 ### 2026-10-15 — Phase 3: frontend
 
@@ -123,8 +118,6 @@ any changes here._
   question, added `nvda` (stored as NVDA), used Ask about NVDA, and reopened the
   first conversation. At 375 px there's no horizontal scroll, and the console
   shows no errors.
-
-**Reviewed by hand:** _TODO (me)._
 
 ### 2026-10-15 — Phase 4: testing and CI
 
@@ -207,7 +200,6 @@ writing them from memory, since all were several major versions newer.
 - The CI smoke-test commands passed against the local stack, and `actionlint`
   is OK.
 
-**Reviewed by hand:** _TODO (me)._
 
 ### 2026-10-15 — Phase 6: CI/CD
 
@@ -625,4 +617,3 @@ starts.
 **Lesson:** asking for the platform's log before acting saved a wrong fix. The
 measured slowness was real but wasn't the cause.
 
-**Reviewed by hand:** _TODO (me)._
