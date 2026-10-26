@@ -251,7 +251,9 @@ email as author (I was told it becomes public).
 - The `wait-for-commit.sh` script both succeeds and times out correctly.
 
 **Not yet verified:**
-- Render's actual client-IP header behavior, and the live deploy (Phase 7)
+- Render's actual client-IP header behavior, and the live deploy (Phase 7).
+  *Later: the live deploy was verified 10-19; the client-IP check failed and
+  was fixed 10-20 (see below).*
 
 **Reviewed by hand:** _TODO (me)._
 
